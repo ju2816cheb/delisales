@@ -1,463 +1,918 @@
-/**
- * LINE OA Receipt Logger — Google Apps Script backend
- *
- * Sheet layout expected (create these 4 tabs in your Google Sheet):
- *
- * 1) "Receipts"  — the log. One row per bill/credit note. Header row (row 1):
- *    Receipt ID | Date | Time | Customer | Customer ID | Salesperson | Sales ID |
- *    Type | Billing # | Amount | Payment Type | Payment Date | Cheque Type |
- *    Cheque Date | Receipt Image | Status | Voided At
- *
- *    "Receipt ID" ties together every row that came from the same submission
- *    (e.g. 2 bills + 1 credit note = 3 rows, same Receipt ID) — it's what lets
- *    the "My receipts" screen group and void them together.
- *    "Type" is either "Bill" or "Credit Note". Credit Note rows carry a
- *    negative Amount.
- *    "Status" is "Active" or "Voided". Voiding never deletes or overwrites a
- *    row — it just flags it, so the original entry stays in the audit trail.
- *    A sale can only void their own receipts (matched on Sales ID), and only
- *    receipts from the last 7 days show up in "My receipts" at all.
- *
- * 2) "Salespersons" — header row: Sales ID | Name
- *    (one salesperson per row below the header)
- *
- * 3) "Customers" — header row: Customer ID | Customer Name
- *    (one customer per row below the header)
- *
- * 4) "LineUsers" — header row: LINE User ID | Sales ID
- *    (one row per salesperson, linking their real LINE account to their
- *    Sales ID). THIS IS THE IDENTITY-BINDING TABLE — see the block comment
- *    above getSalesIdForLineUser() below for how it's used and why it
- *    matters. Only an admin with edit access to the Sheet can add rows here,
- *    so it's fully under your control — the app itself never writes to it.
- *
- * DRIVE LAYOUT:
- *   DRIVE_FOLDER_ID/
- *     2026-08/                  <- created automatically, one per month
- *       Somchai Sales/          <- created automatically, one per salesperson
- *         Somchai Sales - 20260818-143012.jpg
- *
- * SETUP:
- * 1. Replace SHEET_ID below with your Google Sheet's ID
- *    (the long string in the sheet's URL between /d/ and /edit)
- * 2. Replace DRIVE_FOLDER_ID below with the ID of the root Google Drive
- *    folder that will hold the monthly receipt-photo subfolders (the
- *    string in the folder's URL after /folders/)
- * 3. Run setupSheetTabs() once from the Apps Script editor to create any
- *    missing tabs (including "LineUsers").
- * 4. Add a row to "LineUsers" for each salesperson: their LINE User ID in
- *    column A, their Sales ID (matching the "Salespersons" tab) in column B.
- *    You can get a person's LINE User ID by having them open the LIFF form
- *    once — it's harmless if unregistered, see notes below — or via your
- *    LINE OA's member tools.
- * 5. Deploy > New deployment > type "Web app"
- *    - Execute as: Me
- *    - Who has access: Anyone
- * 6. Copy the deployment URL into GAS_ENDPOINT in liff-form.html
- */
-
-const SHEET_ID = '1dYJHab1t0XkkMXI-1VW8hureTKdXhRT040N5eT8j28I';
-const DRIVE_FOLDER_ID = '1_FDfi5aLkRx4rBqxTaSIMlDizkx-W1mi';
-const RECEIPTS_SHEET = 'Receipts';
-const SALES_SHEET = 'Salespersons';
-const CUSTOMERS_SHEET = 'Customers';
-const LINE_USERS_SHEET = 'LineUsers';
-
-// 0-indexed column positions in the "Receipts" sheet — keep in sync with the
-// header row appended in setupSheetTabs().
-const COL = {
-  RECEIPT_ID: 0, DATE: 1, TIME: 2, CUSTOMER: 3, CUSTOMER_ID: 4, SALESPERSON: 5,
-  SALES_ID: 6, TYPE: 7, BILL_NO: 8, AMOUNT: 9, PAYMENT_TYPE: 10, PAYMENT_DATE: 11,
-  CHEQUE_TYPE: 12, CHEQUE_DATE: 13, RECEIPT_IMAGE: 14, STATUS: 15, VOIDED_AT: 16
-};
-
-function doGet(e) {
-  const action = e && e.parameter ? e.parameter.action : null;
-  if (action === 'lists') {
-    const lineUserId = e.parameter.lineUserId || '';
-    return jsonResponse(getLists(lineUserId));
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Log a Receipt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --green:#06C755;
+    --green-dark:#04A648;
+    --ink:#17181A;
+    --ink-soft:#5B5F66;
+    --line-bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E6E8EB;
+    --amber:#FFB020;
+    --amber-bg:#FFF6E5;
+    --red:#E5484D;
+    --red-bg:#FDEDEE;
+    --radius:14px;
   }
-  if (action === 'myReceipts') {
-    const salesId = e.parameter.salesId;
-    if (!salesId) return jsonResponse({ error: 'Missing salesId' });
-    return jsonResponse({ receipts: getMyReceipts(salesId) });
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans Thai','Helvetica Neue',Arial,sans-serif;
+    background:var(--line-bg);
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
   }
-  return jsonResponse({ error: 'Unknown action. Call this URL with ?action=lists or ?action=myReceipts&salesId=...' });
+  h1,h2,label,.headline{ font-family:'Kanit','Noto Sans Thai',sans-serif; }
+
+  .wrap{ max-width:480px; margin:0 auto; padding:16px 16px 110px; }
+
+  /* --- Header --- */
+  header{ padding:6px 4px 16px; }
+  header .eyebrow{ font-size:12px; font-weight:600; color:var(--green-dark); letter-spacing:.04em; text-transform:uppercase; }
+  header h1{ margin:2px 0 0; font-size:21px; font-weight:600; }
+
+  /* --- Signature element: live chat-bubble receipt preview --- */
+  .bubble-row{ display:flex; margin-bottom:20px; }
+  .bubble{
+    background:var(--green);
+    color:#fff;
+    border-radius:16px 16px 16px 4px;
+    padding:14px 16px;
+    max-width:100%;
+    flex:1;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);
+  }
+  .bubble .bt{ font-size:11px; opacity:.85; margin-bottom:6px; font-weight:500; }
+  .bubble .bl{ font-size:14px; line-height:1.65; }
+  .bubble .bl b{ font-weight:600; }
+  .bubble .empty{ opacity:.85; font-size:13.5px; }
+  .bubble .bill-line{ display:flex; justify-content:space-between; gap:10px; }
+  .bubble .bill-line .cn{ opacity:.9; }
+  .bubble .divider{ height:1px; background:rgba(255,255,255,.3); margin:8px 0; }
+  .bubble .amt{ font-size:20px; font-weight:700; margin-top:4px; }
+  .bubble .amt.neg{ color:#FFE1A8; }
+
+  /* --- Card / section --- */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .field{ margin-bottom:16px; }
+  .field:last-child{ margin-bottom:0; }
+  label{ display:block; font-size:13px; font-weight:600; margin-bottom:7px; color:var(--ink); }
+  label .req{ color:var(--green-dark); }
+  .hint{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
+
+  select, input[type=text], input[type=number], input[type=date]{
+    width:100%;
+    font-size:16px;
+    font-family:inherit;
+    padding:12px 14px;
+    border:1.5px solid var(--border);
+    border-radius:10px;
+    background:#fff;
+    color:var(--ink);
+    appearance:none;
+    -webkit-appearance:none;
+  }
+  select:focus, input:focus{ outline:none; border-color:var(--green); }
+  select:disabled{ background-color:var(--line-bg); color:var(--ink); opacity:1; border-color:var(--green); }
+  .hint.verified{ color:var(--green-dark); font-weight:600; }
+  .hint.unverified{ color:var(--amber); }
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%235B5F66' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:34px;
+  }
+
+  /* customer search */
+  .search-box{ position:relative; }
+  .results{
+    position:absolute; left:0; right:0; top:calc(100% + 6px);
+    background:#fff; border:1.5px solid var(--border); border-radius:10px;
+    max-height:220px; overflow-y:auto; z-index:20;
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+    display:none;
+  }
+  .results.open{ display:block; }
+  .result-item{ padding:11px 14px; font-size:14.5px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .result-item:last-child{ border-bottom:none; }
+  .result-item:active{ background:var(--line-bg); }
+  .result-item .id{ font-weight:600; }
+  .result-item .name{ color:var(--ink-soft); font-size:13px; }
+  .no-results{ padding:14px; font-size:13.5px; color:var(--ink-soft); }
+
+  .selected-customer{
+    margin-top:8px; padding:10px 12px; background:var(--line-bg); border-radius:10px;
+    font-size:13.5px; display:none; align-items:center; justify-content:space-between;
+  }
+  .selected-customer.show{ display:flex; }
+  .selected-customer .clear{ color:var(--green-dark); font-weight:600; cursor:pointer; }
+
+  /* payment type segmented control */
+  .seg{ display:flex; gap:8px; }
+  .seg button{
+    flex:1; padding:12px 6px; border-radius:10px; border:1.5px solid var(--border);
+    background:#fff; font-family:inherit; font-size:14px; font-weight:600; color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .seg button.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+
+  .cheque-panel{
+    margin-top:14px; padding:14px; background:var(--amber-bg); border:1px solid #FFE1A8; border-radius:10px;
+    display:none;
+  }
+  .cheque-panel.show{ display:block; }
+  .cheque-panel label{ color:#8A5A00; }
+
+  /* --- Multi bill / credit note rows --- */
+  #billRows{ margin-bottom:10px; }
+  .bill-row{
+    border:1.5px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px;
+  }
+  .bill-row:last-child{ margin-bottom:0; }
+  .bill-row-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .bill-type-toggle{ display:flex; gap:6px; }
+  .bt-btn{
+    padding:6px 12px; border-radius:8px; border:1.5px solid var(--border); background:#fff;
+    font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .bt-btn.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+  .bt-btn.credit.active{ border-color:var(--red); background:var(--red-bg); color:var(--red); }
+  .remove-row{ font-size:12.5px; color:var(--red); font-weight:600; cursor:pointer; padding:4px 2px; }
+  .bill-row-fields{ display:flex; gap:8px; }
+  .bill-row-fields .bill-no{ flex:1.3; }
+  .bill-row-fields .amount-prefix{ flex:1; margin:0; }
+  .amount-prefix.small input{ font-size:15px; padding:11px 12px 11px 30px; }
+  .amount-prefix.small span{ left:12px; font-size:14.5px; }
+  .add-bill-btn{
+    width:100%; padding:11px; border-radius:10px; border:1.5px dashed var(--green); background:#EAFBF1;
+    color:var(--green-dark); font-family:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
+  }
+  .bills-total{
+    display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px;
+    border-top:1px dashed var(--border); font-size:13.5px; font-weight:600; color:var(--ink-soft);
+  }
+  .bills-total .val{ font-size:16px; color:var(--ink); }
+  .bills-total .val.neg{ color:var(--red); }
+
+  /* --- Receipt photo picker --- */
+  .photo-btn-row{ display:flex; gap:8px; }
+  .photo-btn{
+    flex:1; width:100%; padding:13px 8px; border:1.5px dashed var(--border); border-radius:10px;
+    background:var(--line-bg); color:var(--ink-soft); font-family:inherit; font-size:13.5px; font-weight:600;
+    cursor:pointer;
+  }
+  .photo-preview{ display:none; align-items:center; gap:12px; margin-top:4px; }
+  .photo-preview.show{ display:flex; }
+  .photo-preview img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border); }
+  .photo-preview .clear{ color:var(--red); font-weight:600; font-size:13.5px; cursor:pointer; }
+
+  .amount-prefix{ position:relative; }
+  .amount-prefix span{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px; }
+  .amount-prefix input{ padding-left:34px; }
+
+  /* --- Sticky submit bar --- */
+  .submit-bar{
+    position:fixed; left:0; right:0; bottom:0;
+    background:linear-gradient(180deg, rgba(245,246,248,0) 0%, var(--line-bg) 35%);
+    padding:18px 16px 20px;
+  }
+  .submit-bar .inner{ max-width:480px; margin:0 auto; }
+  button.submit{
+    width:100%; padding:15px; border:none; border-radius:12px;
+    background:var(--green); color:#fff; font-family:'Kanit',sans-serif; font-size:16px; font-weight:600;
+    cursor:pointer;
+  }
+  button.submit:disabled{ background:#B9BEC5; }
+  .error-text{ color:var(--red); font-size:12.5px; margin-top:6px; display:none; }
+  .error-text.show{ display:block; }
+
+  .toast{
+    position:fixed; top:16px; left:16px; right:16px; max-width:448px; margin:0 auto;
+    background:var(--ink); color:#fff; padding:13px 16px; border-radius:10px; font-size:14px;
+    display:none; z-index:50; text-align:center;
+  }
+  .toast.show{ display:block; }
+  .toast.err{ background:var(--red); }
+
+  /* --- Tabs --- */
+  .tabs{ display:flex; gap:8px; margin-bottom:16px; }
+  .tab-btn{
+    flex:1; padding:10px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
+    font-family:'Kanit',sans-serif; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .tab-btn.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+
+  /* --- My receipts --- */
+  .empty-state{ text-align:center; padding:44px 16px; color:var(--ink-soft); font-size:13.5px; }
+  .mr-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:10px;
+  }
+  .mr-card.voided{ opacity:.6; }
+  .mr-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .mr-date{ font-size:12px; color:var(--ink-soft); }
+  .mr-customer{ font-size:14.5px; font-weight:600; margin-top:2px; }
+  .mr-total{ font-size:16px; font-weight:700; white-space:nowrap; }
+  .mr-total.neg{ color:var(--red); }
+  .mr-bills{ border-top:1px dashed var(--border); padding-top:8px; margin-top:4px; }
+  .mr-bill-line{ display:flex; justify-content:space-between; font-size:13px; color:var(--ink-soft); padding:2px 0; }
+  .mr-bill-line span.neg{ color:var(--red); }
+  .mr-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .mr-status{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .mr-card.voided .mr-status{ color:var(--red); }
+  .mr-actions{ display:flex; }
+  .mr-action{ font-size:12.5px; font-weight:600; color:var(--green-dark); cursor:pointer; margin-left:14px; }
+  .mr-action.danger{ color:var(--red); }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Sales Receipt</div>
+    <h1>Log a customer receipt</h1>
+  </header>
+
+  <div class="tabs">
+    <button type="button" class="tab-btn active" id="tabNewBtn">New receipt</button>
+    <button type="button" class="tab-btn" id="tabMineBtn">My receipts</button>
+  </div>
+
+  <div id="tabNew">
+  <div class="bubble-row">
+    <div class="bubble" id="preview">
+      <div class="bt">Will be recorded as</div>
+      <div class="bl" id="previewBody"><span class="empty">Fill in the form below — this preview updates as you go.</span></div>
+    </div>
+  </div>
+
+  <form id="receiptForm">
+    <div class="card">
+      <div class="field">
+        <label>Sales person <span class="req">*</span></label>
+        <select id="salesperson" required>
+          <option value="" disabled selected>Select sales person</option>
+        </select>
+        <div class="hint" id="identityHint" style="display:none;"></div>
+      </div>
+
+      <div class="field">
+        <label>Payment date <span class="req">*</span></label>
+        <input type="date" id="paymentDate" required />
+        <div class="hint">Defaults to today — change if logging a past receipt.</div>
+      </div>
+
+      <div class="field">
+        <label>Customer <span class="req">*</span></label>
+        <div class="search-box">
+          <input type="text" id="customerSearch" placeholder="Search by customer ID or name" autocomplete="off" />
+          <div class="results" id="customerResults"></div>
+        </div>
+        <div class="selected-customer" id="selectedCustomer">
+          <span id="selectedCustomerText"></span>
+          <span class="clear" id="clearCustomer">Change</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Bills <span class="req">*</span></label>
+        <div id="billRows"></div>
+        <button type="button" class="add-bill-btn" id="addBillBtn">+ Add another bill</button>
+        <div class="hint">Add one row per bill if the customer is paying for more than one invoice. Use <b>Credit Note</b> to deduct from the total — it's recorded as a negative amount.</div>
+        <div class="bills-total">
+          <span>Total</span>
+          <span class="val" id="billsTotalVal">฿ 0.00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Payment type <span class="req">*</span></label>
+        <div class="seg" id="paymentSeg">
+          <button type="button" data-value="Cash">Cash</button>
+          <button type="button" data-value="Transfer">Transfer</button>
+          <button type="button" data-value="Cheque">Cheque</button>
+        </div>
+
+        <div class="cheque-panel" id="chequePanel">
+          <div class="field">
+            <label>Cheque type <span class="req">*</span></label>
+            <input type="text" id="chequeType" placeholder="e.g. Company, Personal, PDC" />
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Cheque date <span class="req">*</span></label>
+            <input type="date" id="chequeDate" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Receipt image <span class="req">*</span></label>
+        <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="receiptGalleryInput" accept="image/*" style="display:none;" />
+        <div class="photo-btn-row" id="photoBtnRow">
+          <button type="button" class="photo-btn" id="cameraBtn">📷 Take photo</button>
+          <button type="button" class="photo-btn" id="galleryBtn">🖼️ Choose from gallery</button>
+        </div>
+        <div class="photo-preview" id="photoPreview">
+          <img id="photoThumb" alt="Receipt photo preview" />
+          <span class="clear" id="clearPhoto">Remove</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-text" id="formError">Please complete all required fields.</div>
+  </form>
+  </div>
+
+  <div id="tabMine" style="display:none;">
+    <div class="hint" style="margin:0 4px 14px;">Your receipts from the last 7 days. Void a mistaken entry, then log the corrected one.</div>
+    <div id="myReceiptsList"></div>
+  </div>
+</div>
+
+<div class="submit-bar" id="submitBar">
+  <div class="inner">
+    <button type="submit" form="receiptForm" class="submit" id="submitBtn">Save receipt</button>
+  </div>
+</div>
+
+<script>
+/* ====================== CONFIG — replace these two values ====================== */
+const LIFF_ID = "2011154066-sbzdMqVz";                 // from LINE Developers console
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyRsLQ8xhoLZN-vCCaACPhnbzlqkRFrUevZtX1UHqIKuUC_wi0MlC34mQebisYwkKzpdg/exec"; // from Apps Script deployment
+/* ================================================================================ */
+
+let customers = [];
+let salespersons = [];
+let selectedCustomer = null;
+let selectedSalesperson = null;
+let paymentType = null;
+let receiptImageDataUrl = null;
+let profile = { userId: "", displayName: "" };
+
+let billRows = [];   // [{ rowId, type: 'Bill'|'Credit Note', billNo, amount }]
+let rowCounter = 0;
+let myReceiptsCache = [];
+
+const el = (id) => document.getElementById(id);
+
+function money(n){
+  const num = parseFloat(n);
+  if (isNaN(num)) return "0.00";
+  return Math.abs(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function doPost(e) {
-  try {
-    if (!e || !e.postData) {
-      return jsonResponse({ success: false, error: 'No POST data received' });
-    }
-    const data = JSON.parse(e.postData.contents);
-
-    if (data.action === 'void') {
-      const voided = voidReceipt(data);
-      return jsonResponse({ success: true, voided: voided });
-    }
-
-    const identityError = checkIdentity(data);
-    if (identityError) {
-      return jsonResponse({ success: false, error: identityError });
-    }
-
-    const validationError = validateReceipt(data);
-    if (validationError) {
-      return jsonResponse({ success: false, error: validationError });
-    }
-
-    let imageUrl = '';
-    if (data.receiptImage) {
-      try {
-        imageUrl = uploadReceiptImage(data);
-      } catch (imgErr) {
-        // Don't block the receipt from being logged just because the image upload failed
-        imageUrl = 'Upload failed: ' + imgErr.message;
-      }
-    }
-
-    const result = saveReceipt(data, imageUrl);
-    return jsonResponse({ success: true, receiptId: result.receiptId, rows: result, imageUrl: imageUrl });
-  } catch (err) {
-    return jsonResponse({ success: false, error: err.message });
-  }
+function formatSigned(n){
+  const num = parseFloat(n) || 0;
+  return (num < 0 ? '-฿ ' : '฿ ') + money(num);
 }
 
-/**
- * ── IDENTITY BINDING ──────────────────────────────────────────────────────
- * Everything the client sends (salesId, salesperson name, etc.) is just data
- * in a POST body — a browser can send whatever it wants. On its own, that
- * means "sales can only touch their own stuff" is only a UI convention, not
- * a real guarantee: anyone who inspects the request could submit a
- * different Sales ID and the server would have no way to know it wasn't
- * really them.
- *
- * lineUserId is different: it comes from liff.getProfile() inside the LINE
- * app, and identifies the actual logged-in LINE account. It can't be typed
- * in or chosen — LINE itself vouches for it.
- *
- * The "LineUsers" sheet tab is the admin-controlled link between those two
- * worlds: LINE User ID -> Sales ID. Only someone with edit access to the
- * Sheet can add or change a row there, so it's fully under your control —
- * the web app never writes to this tab.
- *
- * getSalesIdForLineUser() looks up that mapping. checkIdentity() then makes
- * sure that if a mapping exists for the LINE account making the request,
- * the Sales ID in the request actually matches it — if someone tries to
- * submit or void as a different salesperson than the LINE account they're
- * logged in as, this rejects the request before anything is written.
- *
- * If a LINE account has NO row in "LineUsers" yet, requests are still
- * allowed through unlinked (so a brand-new salesperson isn't locked out
- * before you've had a chance to register them) — but once you add their
- * row, the check becomes strict for them from then on. If you'd rather
- * block anyone unregistered entirely, see the REQUIRE_REGISTRATION flag
- * below.
- * ────────────────────────────────────────────────────────────────────────
- */
-const REQUIRE_REGISTRATION = false; // set true to hard-block any LINE account with no LineUsers row
+/* ---------- multi bill / credit note rows ---------- */
+function createBillRow(initType){
+  rowCounter++;
+  billRows.push({ rowId: 'row' + rowCounter, type: initType || 'Bill', billNo: '', amount: '' });
+  renderBillRows();
+}
 
-function getSalesIdForLineUser(lineUserId) {
-  if (!lineUserId) return null;
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(LINE_USERS_SHEET);
-  if (!sheet) return null; // tab not created yet — treat as "no mappings configured"
+function removeBillRow(rowId){
+  billRows = billRows.filter(r => r.rowId !== rowId);
+  if (billRows.length === 0) { createBillRow(); return; }
+  renderBillRows();
+}
 
-  const values = sheet.getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    if (String(values[i][0]).trim() === String(lineUserId).trim()) {
-      return String(values[i][1]).trim();
+function renderBillRows(){
+  const container = el('billRows');
+  container.innerHTML = billRows.map(r => `
+    <div class="bill-row" data-row-id="${r.rowId}">
+      <div class="bill-row-head">
+        <div class="bill-type-toggle">
+          <button type="button" class="bt-btn ${r.type === 'Bill' ? 'active' : ''}" data-type="Bill">Bill</button>
+          <button type="button" class="bt-btn credit ${r.type === 'Credit Note' ? 'active' : ''}" data-type="Credit Note">Credit Note</button>
+        </div>
+        ${billRows.length > 1 ? `<span class="remove-row" data-action="remove">Remove</span>` : ''}
+      </div>
+      <div class="bill-row-fields">
+        <input type="text" class="bill-no" placeholder="Bill / invoice no." value="${r.billNo.replace(/"/g,'&quot;')}" />
+        <div class="amount-prefix small">
+          <span>฿</span>
+          <input type="number" class="bill-amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${r.amount}" />
+        </div>
+      </div>
+    </div>
+  `).join('');
+  updatePreview();
+}
+
+el('billRows').addEventListener('click', (e) => {
+  const row = e.target.closest('.bill-row');
+  if (!row) return;
+  const data = billRows.find(r => r.rowId === row.dataset.rowId);
+  if (!data) return;
+
+  if (e.target.classList.contains('bt-btn')) {
+    data.type = e.target.dataset.type;
+    renderBillRows();
+    return;
+  }
+  if (e.target.dataset.action === 'remove') {
+    removeBillRow(row.dataset.rowId);
+  }
+});
+
+el('billRows').addEventListener('input', (e) => {
+  const row = e.target.closest('.bill-row');
+  if (!row) return;
+  const data = billRows.find(r => r.rowId === row.dataset.rowId);
+  if (!data) return;
+  if (e.target.classList.contains('bill-no')) data.billNo = e.target.value;
+  if (e.target.classList.contains('bill-amount')) data.amount = e.target.value;
+  updatePreview();
+});
+
+el('addBillBtn').addEventListener('click', () => createBillRow());
+
+function getSignedBills(){
+  // amount is always entered as a positive number; sign is applied here based on type
+  return billRows
+    .filter(r => r.billNo.trim() || r.amount)
+    .map(r => {
+      const raw = Math.abs(parseFloat(r.amount) || 0);
+      const signed = r.type === 'Credit Note' ? -raw : raw;
+      return { type: r.type, billNo: r.billNo.trim(), amount: signed };
+    });
+}
+
+function updatePreview(){
+  const bills = getSignedBills();
+  const total = bills.reduce((sum, b) => sum + b.amount, 0);
+  el('billsTotalVal').className = 'val' + (total < 0 ? ' neg' : '');
+  el('billsTotalVal').textContent = formatSigned(total);
+
+  const chequeType = el('chequeType').value.trim();
+  const chequeDate = el('chequeDate').value;
+
+  if (!selectedSalesperson && !selectedCustomer && bills.length === 0) {
+    el('previewBody').innerHTML = '<span class="empty">Fill in the form below — this preview updates as you go.</span>';
+    return;
+  }
+
+  let lines = [];
+  if (selectedSalesperson) lines.push(`<b>${selectedSalesperson.name}</b> (${selectedSalesperson.id})`);
+  if (selectedCustomer) lines.push(`Customer ${selectedCustomer.id} — ${selectedCustomer.name}`);
+  if (paymentType) {
+    let pt = paymentType;
+    if (paymentType === 'Cheque') {
+      let extra = [chequeType, chequeDate].filter(Boolean).join(', ');
+      if (extra) pt += ` (${extra})`;
     }
+    lines.push(pt);
   }
-  return null;
+
+  let html = lines.join('<br/>');
+
+  if (bills.length) {
+    html += '<div class="divider"></div>';
+    html += bills.map(b => {
+      const label = b.type === 'Credit Note' ? 'CN' : 'Bill';
+      return `<div class="bill-line"><span>${label} ${b.billNo || '—'}</span><span class="${b.type === 'Credit Note' ? 'cn' : ''}">${formatSigned(b.amount)}</span></div>`;
+    }).join('');
+  }
+
+  if (receiptImageDataUrl) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 Photo attached</div>`;
+  html += `<div class="amt${total < 0 ? ' neg' : ''}">${formatSigned(total)}</div>`;
+
+  el('previewBody').innerHTML = html;
 }
 
-function checkIdentity(data) {
-  const lineUserId = data.lineUserId || '';
-
-  if (!lineUserId) {
-    return REQUIRE_REGISTRATION
-      ? 'Missing LINE identity — please reopen this form from LINE.'
-      : null; // soft mode: allow through if opened outside LINE (e.g. testing)
-  }
-
-  const mappedSalesId = getSalesIdForLineUser(lineUserId);
-
-  if (!mappedSalesId) {
-    return REQUIRE_REGISTRATION
-      ? 'Your LINE account isn\'t registered to a salesperson yet. Ask your admin to add you to the LineUsers sheet.'
-      : null; // soft mode: unregistered accounts pass through, UI just won't auto-lock
-  }
-
-  if (String(data.salesId || '').trim() !== mappedSalesId) {
-    return 'Your LINE account is registered as a different salesperson. If this is wrong, ask your admin to check the LineUsers sheet.';
-  }
-
-  return null; // matched — proceed
+function showToast(msg, isErr){
+  const t = el('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t.className = 'toast', 2600);
 }
 
-function validateReceipt(data) {
-  const required = ['salesperson', 'salesId', 'customerId', 'customerName', 'paymentType', 'paymentDate'];
-  for (const key of required) {
-    if (!data[key] && data[key] !== 0) return `Missing field: ${key}`;
-  }
-  if (!Array.isArray(data.bills) || data.bills.length === 0) {
-    return 'At least one bill (or credit note) is required';
-  }
-  for (const bill of data.bills) {
-    if (!bill.billNo) return 'Every bill needs a billing number';
-    if (bill.amount === undefined || bill.amount === null || isNaN(parseFloat(bill.amount))) {
-      return `Amount must be a number for bill ${bill.billNo}`;
-    }
-    if (bill.type !== 'Bill' && bill.type !== 'Credit Note') {
-      return `Unknown bill type for ${bill.billNo}`;
-    }
-  }
-  if (data.paymentType === 'Cheque' && !data.chequeDate) return 'Cheque date is required for cheque payments';
-  return null;
-}
-
-/**
- * Returns salespersons + customers, plus (if lineUserId maps to a
- * salesperson) which Sales ID that LINE account is registered as, so the
- * frontend can auto-select and lock the salesperson dropdown.
- */
-function getLists(lineUserId) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-
-  const salesRows = ss.getSheetByName(SALES_SHEET).getDataRange().getValues();
-  const salespersons = salesRows.slice(1)
-    .filter(r => r[0])
-    .map(r => ({ id: String(r[0]).trim(), name: String(r[1] || '').trim() }));
-
-  const custRows = ss.getSheetByName(CUSTOMERS_SHEET).getDataRange().getValues();
-  const customers = custRows.slice(1)
-    .filter(r => r[0])
-    .map(r => ({ id: String(r[0]).trim(), name: String(r[1] || '').trim() }));
-
-  const matchedSalesId = getSalesIdForLineUser(lineUserId);
-
-  return { salespersons, customers, matchedSalesId: matchedSalesId || null };
-}
-
-/**
- * Appends one row per bill/credit note in data.bills, all sharing the same
- * Receipt ID and receipt-level info (customer, salesperson, payment details,
- * image link). Returns the generated Receipt ID and the range of rows written.
- */
-function saveReceipt(data, imageUrl) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(RECEIPTS_SHEET);
-
-  const now = new Date();
-  const tz = ss.getSpreadsheetTimeZone();
-  const dateStr = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
-  const timeStr = Utilities.formatDate(now, tz, 'HH:mm:ss');
-  const receiptId = Utilities.getUuid();
-
-  const firstRow = sheet.getLastRow() + 1;
-
-  data.bills.forEach(bill => {
-    const row = [
-      receiptId,                                        // Receipt ID (groups this submission's rows)
-      dateStr,                                           // Date (system entry date)
-      timeStr,                                           // Time (system entry time)
-      data.customerName,                                 // Customer
-      data.customerId,                                   // Customer ID
-      data.salesperson,                                  // Salesperson
-      data.salesId,                                      // Sales ID
-      bill.type,                                         // Type (Bill / Credit Note)
-      bill.billNo,                                        // Billing #
-      parseFloat(bill.amount),                           // Amount (negative for Credit Note)
-      data.paymentType,                                  // Payment Type
-      data.paymentDate,                                  // Payment Date (user-entered)
-      data.paymentType === 'Cheque' ? (data.chequeType || '') : '',  // Cheque Type
-      data.paymentType === 'Cheque' ? (data.chequeDate || '') : '',  // Cheque Date
-      imageUrl || '',                                    // Receipt Image (Drive link)
-      'Active',                                           // Status
-      ''                                                   // Voided At
-    ];
-    sheet.appendRow(row);
-  });
-
-  return { receiptId: receiptId, first: firstRow, last: sheet.getLastRow() };
-}
-
-/**
- * Groups this salesperson's rows from the last 7 days by Receipt ID.
- * Rows with no Receipt ID (logged before the schema update) are skipped
- * since they can't be reliably grouped or voided.
- */
-function getMyReceipts(salesId) {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(RECEIPTS_SHEET);
-  const values = sheet.getDataRange().getValues();
-  const tz = ss.getSpreadsheetTimeZone();
-
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
-
-  const byReceipt = {};
-  const order = [];
-
-  for (let i = 1; i < values.length; i++) {
-    const r = values[i];
-    if (String(r[COL.SALES_ID]).trim() !== String(salesId).trim()) continue;
-
-    const id = r[COL.RECEIPT_ID];
-    if (!id) continue;
-
-    const rowDate = new Date(r[COL.DATE]);
-    if (isNaN(rowDate) || rowDate < cutoff) continue;
-
-    if (!byReceipt[id]) {
-      byReceipt[id] = {
-        receiptId: id,
-        date: Utilities.formatDate(rowDate, tz, 'yyyy-MM-dd'),
-        customerId: r[COL.CUSTOMER_ID],
-        customerName: r[COL.CUSTOMER],
-        paymentType: r[COL.PAYMENT_TYPE],
-        paymentDate: r[COL.PAYMENT_DATE],
-        chequeType: r[COL.CHEQUE_TYPE],
-        chequeDate: r[COL.CHEQUE_DATE],
-        receiptImage: r[COL.RECEIPT_IMAGE],
-        status: r[COL.STATUS] || 'Active',
-        bills: [],
-        total: 0
+/* ---------- receipt photo: read + compress client-side before upload ---------- */
+function fileToCompressedDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1600;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
-      order.push(id);
-    }
-    const amount = parseFloat(r[COL.AMOUNT]) || 0;
-    byReceipt[id].bills.push({ type: r[COL.TYPE], billNo: r[COL.BILL_NO], amount: amount });
-    byReceipt[id].total += amount;
-  }
-
-  return order.reverse().map(id => byReceipt[id]); // most recent first
-}
-
-/**
- * Marks every row belonging to a Receipt ID as "Voided" (never deletes or
- * overwrites the original values). Requires BOTH:
- *   (a) salesId matches the rows' Sales ID (existing check), AND
- *   (b) if the requesting LINE account is registered in LineUsers, its
- *       mapped Sales ID matches the salesId being used (checkIdentity()) —
- *       this is what stops someone from voiding as a name that isn't
- *       actually the LINE account they're logged in as.
- */
-function voidReceipt(data) {
-  if (!data.receiptId) throw new Error('Missing receiptId');
-  if (!data.salesId) throw new Error('Missing salesId — cannot verify ownership');
-
-  const identityError = checkIdentity(data);
-  if (identityError) throw new Error(identityError);
-
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-  const sheet = ss.getSheetByName(RECEIPTS_SHEET);
-  const values = sheet.getDataRange().getValues();
-  const tz = ss.getSpreadsheetTimeZone();
-  const now = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd HH:mm:ss');
-
-  // First pass: find the rows for this receipt and check they all belong to
-  // the requesting salesperson BEFORE writing anything. This avoids a
-  // partial void (some rows voided, some not) and lets us give a precise
-  // error ("not yours") instead of a generic "not found" when the receipt
-  // exists but belongs to someone else.
-  const matchingRowIndexes = [];
-  let receiptExists = false;
-  let ownedByRequester = true;
-
-  for (let i = 1; i < values.length; i++) {
-    if (values[i][COL.RECEIPT_ID] !== data.receiptId) continue;
-    receiptExists = true;
-    if (String(values[i][COL.SALES_ID]).trim() !== String(data.salesId).trim()) {
-      ownedByRequester = false;
-      continue;
-    }
-    if (values[i][COL.STATUS] === 'Voided') continue; // already voided, skip re-flagging
-    matchingRowIndexes.push(i);
-  }
-
-  if (!receiptExists) throw new Error('Receipt not found');
-  if (!ownedByRequester) throw new Error('You can only void your own receipts');
-  if (matchingRowIndexes.length === 0) throw new Error('Receipt already voided');
-
-  matchingRowIndexes.forEach(i => {
-    sheet.getRange(i + 1, COL.STATUS + 1).setValue('Voided');
-    sheet.getRange(i + 1, COL.VOIDED_AT + 1).setValue(now);
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-
-  return matchingRowIndexes.length;
 }
 
-/**
- * Decodes a base64 image sent from the form and saves it into
- *   DRIVE_FOLDER_ID / <YYYY-MM> / <Salesperson Name> / <Salesperson Name> - <timestamp>.<ext>
- * creating the month folder and the salesperson subfolder if they don't
- * already exist. Returns a shareable view link.
- */
-function uploadReceiptImage(data) {
-  const rootFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+el('cameraBtn').addEventListener('click', () => el('receiptCameraInput').click());
+el('galleryBtn').addEventListener('click', () => el('receiptGalleryInput').click());
 
-  // Month folder, e.g. "2026-08" — based on the receipt's payment date
-  const monthLabel = (data.paymentDate || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')).slice(0, 7);
-  const monthFolder = getOrCreateChildFolder(rootFolder, monthLabel);
-
-  // Salesperson subfolder inside the month folder
-  const safeName = (data.salesperson || 'Unknown').trim();
-  const spFolder = getOrCreateChildFolder(monthFolder, safeName);
-
-  // data.receiptImage is a data URL like "data:image/jpeg;base64,AAAA..."
-  const match = data.receiptImage.match(/^data:(.*?);base64,(.*)$/);
-  const contentType = match ? match[1] : 'image/jpeg';
-  const base64Body = match ? match[2] : data.receiptImage;
-  const ext = (contentType.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
-
-  const bytes = Utilities.base64Decode(base64Body);
-  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyyMMdd-HHmmss');
-  const fileName = `${safeName} - ${timestamp}.${ext}`;
-
-  const blob = Utilities.newBlob(bytes, contentType, fileName);
-  const file = spFolder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return file.getUrl();
-}
-
-/** Returns the child folder with this exact name, creating it if it doesn't exist. */
-function getOrCreateChildFolder(parentFolder, name) {
-  const existing = parentFolder.getFoldersByName(name);
-  if (existing.hasNext()) return existing.next();
-  return parentFolder.createFolder(name);
-}
-
-function jsonResponse(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-/**
- * Run this once manually from the Apps Script editor to create the
- * four tabs with correct headers if your Sheet doesn't have them yet.
- * Safe to re-run — it only creates tabs that don't already exist, it never
- * touches or overwrites an existing tab.
- */
-function setupSheetTabs() {
-  const ss = SpreadsheetApp.openById(SHEET_ID);
-
-  if (!ss.getSheetByName(RECEIPTS_SHEET)) {
-    const s = ss.insertSheet(RECEIPTS_SHEET);
-    s.appendRow(['Receipt ID','Date','Time','Customer','Customer ID','Salesperson','Sales ID','Type','Billing #','Amount','Payment Type','Payment Date','Cheque Type','Cheque Date','Receipt Image','Status','Voided At']);
-  }
-  if (!ss.getSheetByName(SALES_SHEET)) {
-    const s = ss.insertSheet(SALES_SHEET);
-    s.appendRow(['Sales ID', 'Name']);
-  }
-  if (!ss.getSheetByName(CUSTOMERS_SHEET)) {
-    const s = ss.insertSheet(CUSTOMERS_SHEET);
-    s.appendRow(['Customer ID', 'Customer Name']);
-  }
-  if (!ss.getSheetByName(LINE_USERS_SHEET)) {
-    const s = ss.insertSheet(LINE_USERS_SHEET);
-    s.appendRow(['LINE User ID', 'Sales ID']);
+async function handlePhotoFile(file){
+  if (!file) return;
+  const row = el('photoBtnRow');
+  try {
+    receiptImageDataUrl = await fileToCompressedDataUrl(file);
+    el('photoThumb').src = receiptImageDataUrl;
+    el('photoPreview').classList.add('show');
+    row.style.display = 'none';
+    updatePreview();
+  } catch (err) {
+    showToast('Could not read that photo', true);
   }
 }
+
+el('receiptCameraInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
+el('receiptGalleryInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
+
+el('clearPhoto').addEventListener('click', () => {
+  receiptImageDataUrl = null;
+  el('receiptCameraInput').value = '';
+  el('receiptGalleryInput').value = '';
+  el('photoPreview').classList.remove('show');
+  el('photoBtnRow').style.display = 'flex';
+  updatePreview();
+});
+
+/* ---------- load salesperson + customer lists ---------- */
+async function loadLists(){
+  try {
+    const qs = profile.userId ? `&lineUserId=${encodeURIComponent(profile.userId)}` : '';
+    const res = await fetch(`${GAS_ENDPOINT}?action=lists${qs}`);
+    const data = await res.json();
+    salespersons = data.salespersons || [];
+    customers = data.customers || [];
+
+    const sel = el('salesperson');
+    salespersons.forEach(sp => {
+      const opt = document.createElement('option');
+      opt.value = sp.id;
+      opt.textContent = sp.name;
+      sel.appendChild(opt);
+    });
+
+    // If this LINE account is registered in the LineUsers sheet, the server
+    // tells us which Sales ID it maps to. Auto-select and lock the dropdown
+    // so this person can only ever submit/void as themselves — this is the
+    // client-side half of the identity check; the server independently
+    // re-verifies the same mapping on every save and void, so locking the
+    // dropdown here is a UX convenience, not the actual security boundary.
+    const hint = el('identityHint');
+    if (data.matchedSalesId) {
+      const match = salespersons.find(sp => sp.id === data.matchedSalesId);
+      if (match) {
+        sel.value = match.id;
+        sel.disabled = true;
+        selectedSalesperson = match;
+        hint.textContent = `Verified as ${match.name} via your LINE account`;
+        hint.className = 'hint verified';
+        hint.style.display = 'block';
+        updatePreview();
+      }
+    } else if (profile.userId) {
+      // Opened from LINE, but this account isn't linked yet — leave the
+      // dropdown open so a new salesperson isn't blocked before an admin
+      // registers them, but say so, so it's not confusing.
+      hint.textContent = 'Your LINE account isn\'t linked to a salesperson yet — ask your admin to add you.';
+      hint.className = 'hint unverified';
+      hint.style.display = 'block';
+    }
+  } catch (err) {
+    showToast('Could not load salesperson/customer lists', true);
+  }
+}
+
+el('salesperson').addEventListener('change', (e) => {
+  const sp = salespersons.find(s => s.id === e.target.value);
+  selectedSalesperson = sp || null;
+  updatePreview();
+});
+
+/* ---------- tabs ---------- */
+function switchTab(tab){
+  const isNew = tab === 'new';
+  el('tabNew').style.display = isNew ? 'block' : 'none';
+  el('tabMine').style.display = isNew ? 'none' : 'block';
+  el('tabNewBtn').classList.toggle('active', isNew);
+  el('tabMineBtn').classList.toggle('active', !isNew);
+  el('submitBar').style.display = isNew ? 'block' : 'none';
+  if (!isNew) loadMyReceipts();
+}
+el('tabNewBtn').addEventListener('click', () => switchTab('new'));
+el('tabMineBtn').addEventListener('click', () => switchTab('mine'));
+
+/* ---------- my receipts: load + render ---------- */
+async function loadMyReceipts(){
+  const list = el('myReceiptsList');
+  if (!selectedSalesperson) {
+    list.innerHTML = `<div class="empty-state">Select your name in <b>New receipt</b> first, then come back here.</div>`;
+    return;
+  }
+  list.innerHTML = `<div class="empty-state">Loading…</div>`;
+  try {
+    const res = await fetch(`${GAS_ENDPOINT}?action=myReceipts&salesId=${encodeURIComponent(selectedSalesperson.id)}`);
+    const data = await res.json();
+    myReceiptsCache = data.receipts || [];
+    renderMyReceipts();
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">Could not load your receipts — check your connection.</div>`;
+  }
+}
+
+function renderMyReceipts(){
+  const list = el('myReceiptsList');
+  if (!myReceiptsCache.length) {
+    list.innerHTML = `<div class="empty-state">No receipts logged in the last 7 days.</div>`;
+    return;
+  }
+  list.innerHTML = myReceiptsCache.map(r => {
+    const voided = r.status === 'Voided';
+    const billsHtml = r.bills.map(b => `
+      <div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : 'Bill'} ${b.billNo}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
+    `).join('');
+    return `
+      <div class="mr-card ${voided ? 'voided' : ''}" data-receipt-id="${r.receiptId}">
+        <div class="mr-head">
+          <div>
+            <div class="mr-date">${r.paymentDate || r.date}</div>
+            <div class="mr-customer">${r.customerName}</div>
+          </div>
+          <div class="mr-total ${r.total < 0 ? 'neg' : ''}">${formatSigned(r.total)}</div>
+        </div>
+        <div class="mr-bills">${billsHtml}</div>
+        <div class="mr-foot">
+          <span class="mr-status">${voided ? 'Voided' : r.paymentType}</span>
+          <div class="mr-actions">
+            ${voided ? '' : `<span class="mr-action" data-action="duplicate">Duplicate &amp; edit</span><span class="mr-action danger" data-action="void">Void</span>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+el('myReceiptsList').addEventListener('click', async (e) => {
+  const card = e.target.closest('.mr-card');
+  const action = e.target.dataset.action;
+  if (!card || !action) return;
+  const receiptId = card.dataset.receiptId;
+
+  if (action === 'void') {
+    if (!selectedSalesperson) {
+      showToast('Select your name in New receipt first', true);
+      return;
+    }
+    if (!confirm('Void this receipt? This cannot be undone.')) return;
+    const original = e.target.textContent;
+    e.target.textContent = 'Voiding…';
+
+    // BUG FIX: this used to fire the request and immediately show a success
+    // toast without ever looking at the server's response. Since the server
+    // returns { success: false, error: ... } with an HTTP 200 when the void
+    // is rejected (e.g. wrong owner, already voided, not found), the old
+    // code always reported "Receipt voided" even when nothing happened —
+    // which is exactly why voiding looked broken. Now we parse the JSON and
+    // only report success (and only refresh the list) when the server
+    // actually confirms it.
+    try {
+      const res = await fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'void', receiptId: receiptId, salesId: selectedSalesperson.id, lineUserId: profile.userId })
+      });
+      const result = await res.json();
+
+      if (result && result.success) {
+        showToast('Receipt voided');
+        loadMyReceipts();
+      } else {
+        showToast((result && result.error) || 'Could not void that receipt', true);
+        e.target.textContent = original;
+      }
+    } catch (err) {
+      showToast('Could not void — check your connection', true);
+      e.target.textContent = original;
+    }
+  }
+
+  if (action === 'duplicate') {
+    duplicateReceipt(receiptId);
+  }
+});
+
+function duplicateReceipt(receiptId){
+  const r = myReceiptsCache.find(x => x.receiptId === receiptId);
+  if (!r) return;
+
+  selectedCustomer = { id: r.customerId, name: r.customerName };
+  el('selectedCustomerText').textContent = `${r.customerId} — ${r.customerName}`;
+  el('selectedCustomer').className = 'selected-customer show';
+  el('customerSearch').style.display = 'none';
+  el('customerSearch').value = '';
+
+  billRows = [];
+  r.bills.forEach(b => {
+    rowCounter++;
+    billRows.push({ rowId: 'row' + rowCounter, type: b.type, billNo: b.billNo, amount: String(Math.abs(b.amount)) });
+  });
+  renderBillRows();
+
+  paymentType = r.paymentType;
+  [...el('paymentSeg').children].forEach(b => b.classList.toggle('active', b.dataset.value === paymentType));
+  el('chequePanel').classList.toggle('show', paymentType === 'Cheque');
+  el('chequeType').value = r.chequeType || '';
+  el('chequeDate').value = r.chequeDate || '';
+  el('paymentDate').value = new Date().toISOString().slice(0, 10);
+
+  // photo isn't carried over — attach it fresh if needed
+  receiptImageDataUrl = null;
+  el('photoPreview').classList.remove('show');
+  el('photoBtnRow').style.display = 'flex';
+
+  switchTab('new');
+  updatePreview();
+  showToast('Loaded — review and save the corrected receipt');
+}
+
+/* ---------- customer search ---------- */
+el('customerSearch').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const box = el('customerResults');
+  if (!q) { box.className = 'results'; box.innerHTML = ''; return; }
+
+  const matches = customers.filter(c =>
+    String(c.id).toLowerCase().includes(q) || String(c.name).toLowerCase().includes(q)
+  ).slice(0, 20);
+
+  box.innerHTML = matches.length
+    ? matches.map(c => `
+        <div class="result-item" data-id="${c.id}" data-name="${c.name}">
+          <div class="id">${c.id}</div>
+          <div class="name">${c.name}</div>
+        </div>`).join('')
+    : `<div class="no-results">No matching customer</div>`;
+  box.className = 'results open';
+});
+
+el('customerResults').addEventListener('click', (e) => {
+  const item = e.target.closest('.result-item');
+  if (!item || !item.dataset.id) return;
+  selectedCustomer = { id: item.dataset.id, name: item.dataset.name };
+  el('customerSearch').value = '';
+  el('customerSearch').style.display = 'none';
+  el('customerResults').className = 'results';
+  el('selectedCustomerText').textContent = `${selectedCustomer.id} — ${selectedCustomer.name}`;
+  el('selectedCustomer').className = 'selected-customer show';
+  updatePreview();
+});
+
+el('clearCustomer').addEventListener('click', () => {
+  selectedCustomer = null;
+  el('customerSearch').style.display = 'block';
+  el('customerSearch').value = '';
+  el('selectedCustomer').className = 'selected-customer';
+  updatePreview();
+});
+
+/* ---------- payment type ---------- */
+el('paymentSeg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  paymentType = btn.dataset.value;
+  [...el('paymentSeg').children].forEach(b => b.classList.toggle('active', b === btn));
+  el('chequePanel').classList.toggle('show', paymentType === 'Cheque');
+  updatePreview();
+});
+
+['chequeType','chequeDate','paymentDate'].forEach(id => {
+  el(id).addEventListener('input', updatePreview);
+  el(id).addEventListener('change', updatePreview);
+});
+
+/* ---------- submit ---------- */
+el('receiptForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  el('formError').className = 'error-text';
+
+  const paymentDate = el('paymentDate').value;
+  const chequeType = el('chequeType').value.trim();
+  const chequeDate = el('chequeDate').value;
+
+  // every bill row must be fully filled in (billNo + amount > 0)
+  const rowsIncomplete = billRows.some(r => !r.billNo.trim() || !(parseFloat(r.amount) > 0));
+
+  if (!selectedSalesperson || !selectedCustomer || billRows.length === 0 || rowsIncomplete ||
+      !paymentType || !paymentDate || !receiptImageDataUrl ||
+      (paymentType === 'Cheque' && (!chequeType || !chequeDate))) {
+    el('formError').textContent = !receiptImageDataUrl
+      ? 'A receipt photo is required.'
+      : 'Please complete all required fields.';
+    el('formError').className = 'error-text show';
+    return;
+  }
+
+  const btn = el('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const bills = getSignedBills();
+  const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
+
+  const payload = {
+    salesperson: selectedSalesperson.name,
+    salesId: selectedSalesperson.id,
+    customerId: selectedCustomer.id,
+    customerName: selectedCustomer.name,
+    bills: bills,                       // [{ type: 'Bill'|'Credit Note', billNo, amount }] — amount negative for credit notes
+    totalAmount: totalAmount,
+    paymentType: paymentType,
+    paymentDate: paymentDate,
+    chequeType: paymentType === 'Cheque' ? chequeType : '',
+    chequeDate: paymentType === 'Cheque' ? chequeDate : '',
+    receiptImage: receiptImageDataUrl || '',
+    lineUserId: profile.userId,
+    lineDisplayName: profile.displayName
+  };
+
+  try {
+    // text/plain avoids a CORS preflight against Apps Script
+    const res = await fetch(GAS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+    const result = await res.json();
+
+    if (!result || !result.success) {
+      showToast((result && result.error) || 'Could not save that receipt', true);
+      btn.disabled = false;
+      btn.textContent = 'Save receipt';
+      return;
+    }
+
+    showToast('Receipt saved ✓');
+    setTimeout(() => {
+      if (window.liff && liff.isInClient()) { liff.closeWindow(); }
+      else { window.location.reload(); }
+    }, 900);
+  } catch (err) {
+    showToast('Could not save — check your connection', true);
+    btn.disabled = false;
+    btn.textContent = 'Save receipt';
+  }
+});
+
+/* ---------- init ---------- */
+(async function init(){
+  try {
+    if (window.liff) {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const p = await liff.getProfile();
+      profile = { userId: p.userId, displayName: p.displayName };
+    }
+  } catch (err) {
+    // Not inside LINE (e.g. testing in a browser) — proceed without a profile
+  }
+  const today = new Date();
+  const iso = today.toISOString().slice(0, 10);
+  el('paymentDate').value = iso;
+  createBillRow();
+  await loadLists();
+})();
+</script>
+</body>
+</html>
