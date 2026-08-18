@@ -166,9 +166,10 @@
   .bills-total .val.neg{ color:var(--red); }
 
   /* --- Receipt photo picker --- */
+  .photo-btn-row{ display:flex; gap:8px; }
   .photo-btn{
-    width:100%; padding:13px; border:1.5px dashed var(--border); border-radius:10px;
-    background:var(--line-bg); color:var(--ink-soft); font-family:inherit; font-size:14.5px; font-weight:600;
+    flex:1; width:100%; padding:13px 8px; border:1.5px dashed var(--border); border-radius:10px;
+    background:var(--line-bg); color:var(--ink-soft); font-family:inherit; font-size:13.5px; font-weight:600;
     cursor:pointer;
   }
   .photo-preview{ display:none; align-items:center; gap:12px; margin-top:4px; }
@@ -203,6 +204,35 @@
   }
   .toast.show{ display:block; }
   .toast.err{ background:var(--red); }
+
+  /* --- Tabs --- */
+  .tabs{ display:flex; gap:8px; margin-bottom:16px; }
+  .tab-btn{
+    flex:1; padding:10px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
+    font-family:'Kanit',sans-serif; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .tab-btn.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+
+  /* --- My receipts --- */
+  .empty-state{ text-align:center; padding:44px 16px; color:var(--ink-soft); font-size:13.5px; }
+  .mr-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:10px;
+  }
+  .mr-card.voided{ opacity:.6; }
+  .mr-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:8px; }
+  .mr-date{ font-size:12px; color:var(--ink-soft); }
+  .mr-customer{ font-size:14.5px; font-weight:600; margin-top:2px; }
+  .mr-total{ font-size:16px; font-weight:700; white-space:nowrap; }
+  .mr-total.neg{ color:var(--red); }
+  .mr-bills{ border-top:1px dashed var(--border); padding-top:8px; margin-top:4px; }
+  .mr-bill-line{ display:flex; justify-content:space-between; font-size:13px; color:var(--ink-soft); padding:2px 0; }
+  .mr-bill-line span.neg{ color:var(--red); }
+  .mr-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .mr-status{ font-size:12px; font-weight:600; color:var(--ink-soft); }
+  .mr-card.voided .mr-status{ color:var(--red); }
+  .mr-actions{ display:flex; }
+  .mr-action{ font-size:12.5px; font-weight:600; color:var(--green-dark); cursor:pointer; margin-left:14px; }
+  .mr-action.danger{ color:var(--red); }
 </style>
 </head>
 <body>
@@ -215,6 +245,12 @@
     <h1>Log a customer receipt</h1>
   </header>
 
+  <div class="tabs">
+    <button type="button" class="tab-btn active" id="tabNewBtn">New receipt</button>
+    <button type="button" class="tab-btn" id="tabMineBtn">My receipts</button>
+  </div>
+
+  <div id="tabNew">
   <div class="bubble-row">
     <div class="bubble" id="preview">
       <div class="bt">Will be recorded as</div>
@@ -288,8 +324,12 @@
     <div class="card">
       <div class="field" style="margin-bottom:0;">
         <label>Receipt image <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label>
-        <input type="file" id="receiptImageInput" accept="image/*" capture="environment" style="display:none;" />
-        <button type="button" class="photo-btn" id="photoBtn">📷 Add photo</button>
+        <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" style="display:none;" />
+        <input type="file" id="receiptGalleryInput" accept="image/*" style="display:none;" />
+        <div class="photo-btn-row" id="photoBtnRow">
+          <button type="button" class="photo-btn" id="cameraBtn">📷 Take photo</button>
+          <button type="button" class="photo-btn" id="galleryBtn">🖼️ Choose from gallery</button>
+        </div>
         <div class="photo-preview" id="photoPreview">
           <img id="photoThumb" alt="Receipt photo preview" />
           <span class="clear" id="clearPhoto">Remove</span>
@@ -299,9 +339,15 @@
 
     <div class="error-text" id="formError">Please complete all required fields.</div>
   </form>
+  </div>
+
+  <div id="tabMine" style="display:none;">
+    <div class="hint" style="margin:0 4px 14px;">Your receipts from the last 7 days. Void a mistaken entry, then log the corrected one.</div>
+    <div id="myReceiptsList"></div>
+  </div>
 </div>
 
-<div class="submit-bar">
+<div class="submit-bar" id="submitBar">
   <div class="inner">
     <button type="submit" form="receiptForm" class="submit" id="submitBtn">Save receipt</button>
   </div>
@@ -323,6 +369,7 @@ let profile = { userId: "", displayName: "" };
 
 let billRows = [];   // [{ rowId, type: 'Bill'|'Credit Note', billNo, amount }]
 let rowCounter = 0;
+let myReceiptsCache = [];
 
 const el = (id) => document.getElementById(id);
 
@@ -487,30 +534,32 @@ function fileToCompressedDataUrl(file){
   });
 }
 
-el('photoBtn').addEventListener('click', () => el('receiptImageInput').click());
+el('cameraBtn').addEventListener('click', () => el('receiptCameraInput').click());
+el('galleryBtn').addEventListener('click', () => el('receiptGalleryInput').click());
 
-el('receiptImageInput').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
+async function handlePhotoFile(file){
   if (!file) return;
-  const originalLabel = el('photoBtn').textContent;
-  el('photoBtn').textContent = 'Processing…';
+  const row = el('photoBtnRow');
   try {
     receiptImageDataUrl = await fileToCompressedDataUrl(file);
     el('photoThumb').src = receiptImageDataUrl;
     el('photoPreview').classList.add('show');
-    el('photoBtn').style.display = 'none';
+    row.style.display = 'none';
     updatePreview();
   } catch (err) {
     showToast('Could not read that photo', true);
   }
-  el('photoBtn').textContent = originalLabel;
-});
+}
+
+el('receiptCameraInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
+el('receiptGalleryInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
 
 el('clearPhoto').addEventListener('click', () => {
   receiptImageDataUrl = null;
-  el('receiptImageInput').value = '';
+  el('receiptCameraInput').value = '';
+  el('receiptGalleryInput').value = '';
   el('photoPreview').classList.remove('show');
-  el('photoBtn').style.display = 'block';
+  el('photoBtnRow').style.display = 'flex';
   updatePreview();
 });
 
@@ -539,6 +588,132 @@ el('salesperson').addEventListener('change', (e) => {
   selectedSalesperson = sp || null;
   updatePreview();
 });
+
+/* ---------- tabs ---------- */
+function switchTab(tab){
+  const isNew = tab === 'new';
+  el('tabNew').style.display = isNew ? 'block' : 'none';
+  el('tabMine').style.display = isNew ? 'none' : 'block';
+  el('tabNewBtn').classList.toggle('active', isNew);
+  el('tabMineBtn').classList.toggle('active', !isNew);
+  el('submitBar').style.display = isNew ? 'block' : 'none';
+  if (!isNew) loadMyReceipts();
+}
+el('tabNewBtn').addEventListener('click', () => switchTab('new'));
+el('tabMineBtn').addEventListener('click', () => switchTab('mine'));
+
+/* ---------- my receipts: load + render ---------- */
+async function loadMyReceipts(){
+  const list = el('myReceiptsList');
+  if (!selectedSalesperson) {
+    list.innerHTML = `<div class="empty-state">Select your name in <b>New receipt</b> first, then come back here.</div>`;
+    return;
+  }
+  list.innerHTML = `<div class="empty-state">Loading…</div>`;
+  try {
+    const res = await fetch(`${GAS_ENDPOINT}?action=myReceipts&salesId=${encodeURIComponent(selectedSalesperson.id)}`);
+    const data = await res.json();
+    myReceiptsCache = data.receipts || [];
+    renderMyReceipts();
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">Could not load your receipts — check your connection.</div>`;
+  }
+}
+
+function renderMyReceipts(){
+  const list = el('myReceiptsList');
+  if (!myReceiptsCache.length) {
+    list.innerHTML = `<div class="empty-state">No receipts logged in the last 7 days.</div>`;
+    return;
+  }
+  list.innerHTML = myReceiptsCache.map(r => {
+    const voided = r.status === 'Voided';
+    const billsHtml = r.bills.map(b => `
+      <div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : 'Bill'} ${b.billNo}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
+    `).join('');
+    return `
+      <div class="mr-card ${voided ? 'voided' : ''}" data-receipt-id="${r.receiptId}">
+        <div class="mr-head">
+          <div>
+            <div class="mr-date">${r.paymentDate || r.date}</div>
+            <div class="mr-customer">${r.customerName}</div>
+          </div>
+          <div class="mr-total ${r.total < 0 ? 'neg' : ''}">${formatSigned(r.total)}</div>
+        </div>
+        <div class="mr-bills">${billsHtml}</div>
+        <div class="mr-foot">
+          <span class="mr-status">${voided ? 'Voided' : r.paymentType}</span>
+          <div class="mr-actions">
+            ${voided ? '' : `<span class="mr-action" data-action="duplicate">Duplicate &amp; edit</span><span class="mr-action danger" data-action="void">Void</span>`}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+el('myReceiptsList').addEventListener('click', async (e) => {
+  const card = e.target.closest('.mr-card');
+  const action = e.target.dataset.action;
+  if (!card || !action) return;
+  const receiptId = card.dataset.receiptId;
+
+  if (action === 'void') {
+    if (!confirm('Void this receipt? This cannot be undone.')) return;
+    const original = e.target.textContent;
+    e.target.textContent = 'Voiding…';
+    try {
+      await fetch(GAS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'void', receiptId: receiptId, salesId: selectedSalesperson.id })
+      });
+      showToast('Receipt voided');
+      loadMyReceipts();
+    } catch (err) {
+      showToast('Could not void — check your connection', true);
+      e.target.textContent = original;
+    }
+  }
+
+  if (action === 'duplicate') {
+    duplicateReceipt(receiptId);
+  }
+});
+
+function duplicateReceipt(receiptId){
+  const r = myReceiptsCache.find(x => x.receiptId === receiptId);
+  if (!r) return;
+
+  selectedCustomer = { id: r.customerId, name: r.customerName };
+  el('selectedCustomerText').textContent = `${r.customerId} — ${r.customerName}`;
+  el('selectedCustomer').className = 'selected-customer show';
+  el('customerSearch').style.display = 'none';
+  el('customerSearch').value = '';
+
+  billRows = [];
+  r.bills.forEach(b => {
+    rowCounter++;
+    billRows.push({ rowId: 'row' + rowCounter, type: b.type, billNo: b.billNo, amount: String(Math.abs(b.amount)) });
+  });
+  renderBillRows();
+
+  paymentType = r.paymentType;
+  [...el('paymentSeg').children].forEach(b => b.classList.toggle('active', b.dataset.value === paymentType));
+  el('chequePanel').classList.toggle('show', paymentType === 'Cheque');
+  el('chequeType').value = r.chequeType || '';
+  el('chequeDate').value = r.chequeDate || '';
+  el('paymentDate').value = new Date().toISOString().slice(0, 10);
+
+  // photo isn't carried over — attach it fresh if needed
+  receiptImageDataUrl = null;
+  el('photoPreview').classList.remove('show');
+  el('photoBtnRow').style.display = 'flex';
+
+  switchTab('new');
+  updatePreview();
+  showToast('Loaded — review and save the corrected receipt');
+}
 
 /* ---------- customer search ---------- */
 el('customerSearch').addEventListener('input', (e) => {
