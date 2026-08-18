@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+<title>Log a Receipt</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700&family=Noto+Sans+Thai:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<style>
+  :root{
+    --green:#06C755;
+    --green-dark:#04A648;
+    --ink:#17181A;
+    --ink-soft:#5B5F66;
+    --line-bg:#F5F6F8;
+    --card:#FFFFFF;
+    --border:#E6E8EB;
+    --amber:#FFB020;
+    --amber-bg:#FFF6E5;
+    --red:#E5484D;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Noto Sans Thai','Helvetica Neue',Arial,sans-serif;
+    background:var(--line-bg);
+    color:var(--ink);
+    -webkit-tap-highlight-color:transparent;
+  }
+  h1,h2,label,.headline{ font-family:'Kanit','Noto Sans Thai',sans-serif; }
+
+  .wrap{ max-width:480px; margin:0 auto; padding:16px 16px 110px; }
+
+  /* --- Header --- */
+  header{ padding:6px 4px 16px; }
+  header .eyebrow{ font-size:12px; font-weight:600; color:var(--green-dark); letter-spacing:.04em; text-transform:uppercase; }
+  header h1{ margin:2px 0 0; font-size:21px; font-weight:600; }
+
+  /* --- Signature element: live chat-bubble receipt preview --- */
+  .bubble-row{ display:flex; margin-bottom:20px; }
+  .bubble{
+    background:var(--green);
+    color:#fff;
+    border-radius:16px 16px 16px 4px;
+    padding:14px 16px;
+    max-width:100%;
+    flex:1;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);
+  }
+  .bubble .bt{ font-size:11px; opacity:.85; margin-bottom:6px; font-weight:500; }
+  .bubble .bl{ font-size:14px; line-height:1.65; }
+  .bubble .bl b{ font-weight:600; }
+  .bubble .empty{ opacity:.85; font-size:13.5px; }
+  .bubble .amt{ font-size:20px; font-weight:700; margin-top:4px; }
+
+  /* --- Card / section --- */
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:12px;
+  }
+  .field{ margin-bottom:16px; }
+  .field:last-child{ margin-bottom:0; }
+  label{ display:block; font-size:13px; font-weight:600; margin-bottom:7px; color:var(--ink); }
+  label .req{ color:var(--green-dark); }
+  .hint{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
+
+  select, input[type=text], input[type=number], input[type=date]{
+    width:100%;
+    font-size:16px;
+    font-family:inherit;
+    padding:12px 14px;
+    border:1.5px solid var(--border);
+    border-radius:10px;
+    background:#fff;
+    color:var(--ink);
+    appearance:none;
+    -webkit-appearance:none;
+  }
+  select:focus, input:focus{ outline:none; border-color:var(--green); }
+  select{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%235B5F66' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;
+    background-position:right 14px center;
+    padding-right:34px;
+  }
+
+  /* customer search */
+  .search-box{ position:relative; }
+  .results{
+    position:absolute; left:0; right:0; top:calc(100% + 6px);
+    background:#fff; border:1.5px solid var(--border); border-radius:10px;
+    max-height:220px; overflow-y:auto; z-index:20;
+    box-shadow:0 8px 20px rgba(0,0,0,.08);
+    display:none;
+  }
+  .results.open{ display:block; }
+  .result-item{ padding:11px 14px; font-size:14.5px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .result-item:last-child{ border-bottom:none; }
+  .result-item:active{ background:var(--line-bg); }
+  .result-item .id{ font-weight:600; }
+  .result-item .name{ color:var(--ink-soft); font-size:13px; }
+  .no-results{ padding:14px; font-size:13.5px; color:var(--ink-soft); }
+
+  .selected-customer{
+    margin-top:8px; padding:10px 12px; background:var(--line-bg); border-radius:10px;
+    font-size:13.5px; display:none; align-items:center; justify-content:space-between;
+  }
+  .selected-customer.show{ display:flex; }
+  .selected-customer .clear{ color:var(--green-dark); font-weight:600; cursor:pointer; }
+
+  /* payment type segmented control */
+  .seg{ display:flex; gap:8px; }
+  .seg button{
+    flex:1; padding:12px 6px; border-radius:10px; border:1.5px solid var(--border);
+    background:#fff; font-family:inherit; font-size:14px; font-weight:600; color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .seg button.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+
+  .cheque-panel{
+    margin-top:14px; padding:14px; background:var(--amber-bg); border:1px solid #FFE1A8; border-radius:10px;
+    display:none;
+  }
+  .cheque-panel.show{ display:block; }
+  .cheque-panel label{ color:#8A5A00; }
+
+  /* --- Receipt photo picker --- */
+  .photo-btn{
+    width:100%; padding:13px; border:1.5px dashed var(--border); border-radius:10px;
+    background:var(--line-bg); color:var(--ink-soft); font-family:inherit; font-size:14.5px; font-weight:600;
+    cursor:pointer;
+  }
+  .photo-preview{ display:none; align-items:center; gap:12px; margin-top:4px; }
+  .photo-preview.show{ display:flex; }
+  .photo-preview img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border); }
+  .photo-preview .clear{ color:var(--red); font-weight:600; font-size:13.5px; cursor:pointer; }
+
+  .amount-prefix{ position:relative; }
+  .amount-prefix span{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px; }
+  .amount-prefix input{ padding-left:34px; }
+
+  /* --- Sticky submit bar --- */
+  .submit-bar{
+    position:fixed; left:0; right:0; bottom:0;
+    background:linear-gradient(180deg, rgba(245,246,248,0) 0%, var(--line-bg) 35%);
+    padding:18px 16px 20px;
+  }
+  .submit-bar .inner{ max-width:480px; margin:0 auto; }
+  button.submit{
+    width:100%; padding:15px; border:none; border-radius:12px;
+    background:var(--green); color:#fff; font-family:'Kanit',sans-serif; font-size:16px; font-weight:600;
+    cursor:pointer;
+  }
+  button.submit:disabled{ background:#B9BEC5; }
+  .error-text{ color:var(--red); font-size:12.5px; margin-top:6px; display:none; }
+  .error-text.show{ display:block; }
+
+  .toast{
+    position:fixed; top:16px; left:16px; right:16px; max-width:448px; margin:0 auto;
+    background:var(--ink); color:#fff; padding:13px 16px; border-radius:10px; font-size:14px;
+    display:none; z-index:50; text-align:center;
+  }
+  .toast.show{ display:block; }
+  .toast.err{ background:var(--red); }
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Sales Receipt</div>
+    <h1>Log a customer receipt</h1>
+  </header>
+
+  <div class="bubble-row">
+    <div class="bubble" id="preview">
+      <div class="bt">Will be recorded as</div>
+      <div class="bl" id="previewBody"><span class="empty">Fill in the form below — this preview updates as you go.</span></div>
+    </div>
+  </div>
+
+  <form id="receiptForm">
+    <div class="card">
+      <div class="field">
+        <label>Sales person <span class="req">*</span></label>
+        <select id="salesperson" required>
+          <option value="" disabled selected>Select sales person</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>Payment date <span class="req">*</span></label>
+        <input type="date" id="paymentDate" required />
+        <div class="hint">Defaults to today — change if logging a past receipt.</div>
+      </div>
+
+      <div class="field">
+        <label>Customer <span class="req">*</span></label>
+        <div class="search-box">
+          <input type="text" id="customerSearch" placeholder="Search by customer ID or name" autocomplete="off" />
+          <div class="results" id="customerResults"></div>
+        </div>
+        <div class="selected-customer" id="selectedCustomer">
+          <span id="selectedCustomerText"></span>
+          <span class="clear" id="clearCustomer">Change</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Bill / invoice no. <span class="req">*</span></label>
+        <input type="text" id="billNo" placeholder="e.g. INV-2026-0819" required />
+      </div>
+
+      <div class="field">
+        <label>Amount (THB) <span class="req">*</span></label>
+        <div class="amount-prefix">
+          <span>฿</span>
+          <input type="number" id="amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" required />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Payment type <span class="req">*</span></label>
+        <div class="seg" id="paymentSeg">
+          <button type="button" data-value="Cash">Cash</button>
+          <button type="button" data-value="Transfer">Transfer</button>
+          <button type="button" data-value="Cheque">Cheque</button>
+        </div>
+
+        <div class="cheque-panel" id="chequePanel">
+          <div class="field">
+            <label>Cheque type <span class="req">*</span></label>
+            <input type="text" id="chequeType" placeholder="e.g. Company, Personal, PDC" />
+          </div>
+          <div class="field" style="margin-bottom:0;">
+            <label>Cheque date <span class="req">*</span></label>
+            <input type="date" id="chequeDate" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0;">
+        <label>Receipt image <span style="font-weight:400; color:var(--ink-soft);">(optional)</span></label>
+        <input type="file" id="receiptImageInput" accept="image/*" capture="environment" style="display:none;" />
+        <button type="button" class="photo-btn" id="photoBtn">📷 Add photo</button>
+        <div class="photo-preview" id="photoPreview">
+          <img id="photoThumb" alt="Receipt photo preview" />
+          <span class="clear" id="clearPhoto">Remove</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="error-text" id="formError">Please complete all required fields.</div>
+  </form>
+</div>
+
+<div class="submit-bar">
+  <div class="inner">
+    <button type="submit" form="receiptForm" class="submit" id="submitBtn">Save receipt</button>
+  </div>
+</div>
+
+<script>
+/* ====================== CONFIG — replace these two values ====================== */
+const LIFF_ID = "YOUR_LIFF_ID";                 // from LINE Developers console
+const GAS_ENDPOINT = "YOUR_APPS_SCRIPT_WEB_APP_URL"; // from Apps Script deployment
+/* ================================================================================ */
+
+let customers = [];
+let salespersons = [];
+let selectedCustomer = null;
+let selectedSalesperson = null;
+let paymentType = null;
+let receiptImageDataUrl = null;
+let profile = { userId: "", displayName: "" };
+
+const el = (id) => document.getElementById(id);
+
+function money(n){
+  const num = parseFloat(n);
+  if (isNaN(num)) return "0.00";
+  return num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function updatePreview(){
+  const bill = el('billNo').value.trim();
+  const amt = el('amount').value;
+  const chequeType = el('chequeType').value.trim();
+  const chequeDate = el('chequeDate').value;
+
+  if (!selectedSalesperson && !selectedCustomer && !bill && !amt) {
+    el('previewBody').innerHTML = '<span class="empty">Fill in the form below — this preview updates as you go.</span>';
+    return;
+  }
+
+  let lines = [];
+  if (selectedSalesperson) lines.push(`<b>${selectedSalesperson.name}</b> (${selectedSalesperson.id})`);
+  if (selectedCustomer) lines.push(`Customer ${selectedCustomer.id} — ${selectedCustomer.name}`);
+  if (bill) lines.push(`Bill ${bill}`);
+  if (paymentType) {
+    let pt = paymentType;
+    if (paymentType === 'Cheque') {
+      let extra = [chequeType, chequeDate].filter(Boolean).join(', ');
+      if (extra) pt += ` (${extra})`;
+    }
+    lines.push(pt);
+  }
+  let html = lines.join('<br/>');
+  if (amt) html += `<div class="amt">฿ ${money(amt)}</div>`;
+  if (receiptImageDataUrl) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 Photo attached</div>`;
+  el('previewBody').innerHTML = html || '<span class="empty">Fill in the form below — this preview updates as you go.</span>';
+}
+
+function showToast(msg, isErr){
+  const t = el('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t.className = 'toast', 2600);
+}
+
+/* ---------- receipt photo: read + compress client-side before upload ---------- */
+function fileToCompressedDataUrl(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1600;
+        let { width, height } = img;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+          else { width = Math.round(width * maxDim / height); height = maxDim; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+el('photoBtn').addEventListener('click', () => el('receiptImageInput').click());
+
+el('receiptImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const originalLabel = el('photoBtn').textContent;
+  el('photoBtn').textContent = 'Processing…';
+  try {
+    receiptImageDataUrl = await fileToCompressedDataUrl(file);
+    el('photoThumb').src = receiptImageDataUrl;
+    el('photoPreview').classList.add('show');
+    el('photoBtn').style.display = 'none';
+    updatePreview();
+  } catch (err) {
+    showToast('Could not read that photo', true);
+  }
+  el('photoBtn').textContent = originalLabel;
+});
+
+el('clearPhoto').addEventListener('click', () => {
+  receiptImageDataUrl = null;
+  el('receiptImageInput').value = '';
+  el('photoPreview').classList.remove('show');
+  el('photoBtn').style.display = 'block';
+  updatePreview();
+});
+
+/* ---------- load salesperson + customer lists ---------- */
+async function loadLists(){
+  try {
+    const res = await fetch(`${GAS_ENDPOINT}?action=lists`);
+    const data = await res.json();
+    salespersons = data.salespersons || [];
+    customers = data.customers || [];
+
+    const sel = el('salesperson');
+    salespersons.forEach(sp => {
+      const opt = document.createElement('option');
+      opt.value = sp.id;
+      opt.textContent = sp.name;
+      sel.appendChild(opt);
+    });
+  } catch (err) {
+    showToast('Could not load salesperson/customer lists', true);
+  }
+}
+
+el('salesperson').addEventListener('change', (e) => {
+  const sp = salespersons.find(s => s.id === e.target.value);
+  selectedSalesperson = sp || null;
+  updatePreview();
+});
+
+/* ---------- customer search ---------- */
+el('customerSearch').addEventListener('input', (e) => {
+  const q = e.target.value.trim().toLowerCase();
+  const box = el('customerResults');
+  if (!q) { box.className = 'results'; box.innerHTML = ''; return; }
+
+  const matches = customers.filter(c =>
+    String(c.id).toLowerCase().includes(q) || String(c.name).toLowerCase().includes(q)
+  ).slice(0, 20);
+
+  box.innerHTML = matches.length
+    ? matches.map(c => `
+        <div class="result-item" data-id="${c.id}" data-name="${c.name}">
+          <div class="id">${c.id}</div>
+          <div class="name">${c.name}</div>
+        </div>`).join('')
+    : `<div class="no-results">No matching customer</div>`;
+  box.className = 'results open';
+});
+
+el('customerResults').addEventListener('click', (e) => {
+  const item = e.target.closest('.result-item');
+  if (!item || !item.dataset.id) return;
+  selectedCustomer = { id: item.dataset.id, name: item.dataset.name };
+  el('customerSearch').value = '';
+  el('customerSearch').style.display = 'none';
+  el('customerResults').className = 'results';
+  el('selectedCustomerText').textContent = `${selectedCustomer.id} — ${selectedCustomer.name}`;
+  el('selectedCustomer').className = 'selected-customer show';
+  updatePreview();
+});
+
+el('clearCustomer').addEventListener('click', () => {
+  selectedCustomer = null;
+  el('customerSearch').style.display = 'block';
+  el('customerSearch').value = '';
+  el('selectedCustomer').className = 'selected-customer';
+  updatePreview();
+});
+
+/* ---------- payment type ---------- */
+el('paymentSeg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  paymentType = btn.dataset.value;
+  [...el('paymentSeg').children].forEach(b => b.classList.toggle('active', b === btn));
+  el('chequePanel').classList.toggle('show', paymentType === 'Cheque');
+  updatePreview();
+});
+
+['billNo','amount','chequeType','chequeDate','paymentDate'].forEach(id => {
+  el(id).addEventListener('input', updatePreview);
+  el(id).addEventListener('change', updatePreview);
+});
+
+/* ---------- submit ---------- */
+el('receiptForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  el('formError').className = 'error-text';
+
+  const bill = el('billNo').value.trim();
+  const amount = el('amount').value;
+  const paymentDate = el('paymentDate').value;
+  const chequeType = el('chequeType').value.trim();
+  const chequeDate = el('chequeDate').value;
+
+  if (!selectedSalesperson || !selectedCustomer || !bill || !amount || !paymentType || !paymentDate ||
+      (paymentType === 'Cheque' && (!chequeType || !chequeDate))) {
+    el('formError').className = 'error-text show';
+    return;
+  }
+
+  const btn = el('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  const payload = {
+    salesperson: selectedSalesperson.name,
+    salesId: selectedSalesperson.id,
+    customerId: selectedCustomer.id,
+    customerName: selectedCustomer.name,
+    billNo: bill,
+    amount: amount,
+    paymentType: paymentType,
+    paymentDate: paymentDate,
+    chequeType: paymentType === 'Cheque' ? chequeType : '',
+    chequeDate: paymentType === 'Cheque' ? chequeDate : '',
+    receiptImage: receiptImageDataUrl || '',
+    lineUserId: profile.userId,
+    lineDisplayName: profile.displayName
+  };
+
+  try {
+    // text/plain avoids a CORS preflight against Apps Script
+    await fetch(GAS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    });
+
+    showToast('Receipt saved ✓');
+    setTimeout(() => {
+      if (window.liff && liff.isInClient()) { liff.closeWindow(); }
+      else { window.location.reload(); }
+    }, 900);
+  } catch (err) {
+    showToast('Could not save — check your connection', true);
+    btn.disabled = false;
+    btn.textContent = 'Save receipt';
+  }
+});
+
+/* ---------- init ---------- */
+(async function init(){
+  try {
+    if (window.liff) {
+      await liff.init({ liffId: LIFF_ID });
+      if (!liff.isLoggedIn()) { liff.login(); return; }
+      const p = await liff.getProfile();
+      profile = { userId: p.userId, displayName: p.displayName };
+    }
+  } catch (err) {
+    // Not inside LINE (e.g. testing in a browser) — proceed without a profile
+  }
+  const today = new Date();
+  const iso = today.toISOString().slice(0, 10);
+  el('paymentDate').value = iso;
+  await loadLists();
+})();
+</script>
+</body>
+</html>
