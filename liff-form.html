@@ -303,6 +303,15 @@
     <button type="button" class="tab-btn" id="tabSummaryBtn" data-i18n="tabSummary">Totals</button>
   </div>
 
+  <!-- Finance-only: lets a Finance account switch which salesperson's
+       My receipts / Totals they're looking at. Hidden entirely for
+       everyone else. Filing (New receipt) always stays locked to your
+       own identity — this only affects what's displayed on read tabs. -->
+  <div class="field" id="viewAsField" style="display:none; margin:0 4px 14px;">
+    <label data-i18n="viewingAs">Viewing data for</label>
+    <select id="viewAsSelect"></select>
+  </div>
+
   <div id="tabNew">
   <form id="receiptForm">
     <div class="card">
@@ -465,7 +474,8 @@ const I18N = {
     linkedMismatch: 'Your LINE account is linked to Sales ID "{id}", but that ID isn\'t in the Salespersons sheet. Ask your admin to check it.',
     notLinked: 'Not linked yet — select your name below and it will link to your LINE account automatically once you save your first receipt.',
     identityFail: 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.',
-    noMatchingCustomer: 'No matching customer'
+    noMatchingCustomer: 'No matching customer',
+    viewingAs: 'Viewing data for'
   },
   th: {
     eyebrow: 'ใบเสร็จรับเงิน', title: 'บันทึกใบเสร็จลูกค้า',
@@ -503,7 +513,8 @@ const I18N = {
     linkedMismatch: 'บัญชี LINE ของคุณเชื่อมกับรหัสSales "{id}" แต่ไม่พบรหัสนี้ในชีต Salespersons กรุณาแจ้งแอดมินให้ตรวจสอบ',
     notLinked: 'ยังไม่ได้เชื่อมบัญชี — เลือกชื่อของคุณด้านล่าง ระบบจะเชื่อมกับบัญชี LINE ของคุณโดยอัตโนมัติเมื่อคุณบันทึกใบเสร็จแรกสำเร็จ',
     identityFail: 'ไม่สามารถยืนยันตัวตน LINE ของคุณโดยอัตโนมัติได้ — เลือกชื่อของคุณเอง หรือเปิดแบบฟอร์มนี้จากแชท LINE อีกครั้ง',
-    noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน'
+    noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน',
+    viewingAs: 'กำลังดูข้อมูลของ'
   }
 };
 
@@ -551,7 +562,9 @@ function el(id){ return document.getElementById(id); }
 let customers = [];
 let salespersons = [];
 let selectedCustomer = null;
-let selectedSalesperson = null;
+let selectedSalesperson = null;  // who this LINE account is registered as — always the identity used for filing/void
+let isFinance = false;           // true when the logged-in identity's Sales ID starts with "F-"
+let viewedSalesperson = null;    // whose My receipts / Totals are currently shown; Finance accounts can change this
 let paymentType = null;
 let receiptImageDataUrl = null;
 let profile = { userId: "", displayName: "" };
@@ -715,7 +728,8 @@ function renderDebugPanel(){
     `Inside LINE app: ${liffStatus.isInClient}\n` +
     `Init error: ${liffStatus.error || '(none)'}\n` +
     `profile.userId: ${profile.userId || '(empty)'}\n` +
-    `matchedSalesId from server: ${window.__matchedSalesId || '(none)'}`;
+    `matchedSalesId from server: ${window.__matchedSalesId || '(none)'}\n` +
+    `isFinance: ${isFinance}`;
 }
 
 /* ---------- receipt photo: read + compress client-side before upload ---------- */
@@ -773,6 +787,28 @@ el('clearPhoto').addEventListener('click', () => {
   updatePreview();
 });
 
+/* ---------- Finance "viewing data for" switcher ---------- */
+// Populates the switcher from the same salespersons list already loaded,
+// and keeps it in sync with the currently-viewed salesperson.
+function populateViewAsSelect(){
+  const sel = el('viewAsSelect');
+  sel.innerHTML = '';
+  salespersons.forEach(sp => {
+    const opt = document.createElement('option');
+    opt.value = sp.id;
+    opt.textContent = sp.name && sp.name.trim() ? sp.name : sp.id;
+    sel.appendChild(opt);
+  });
+  if (viewedSalesperson) sel.value = viewedSalesperson.id;
+}
+
+el('viewAsSelect').addEventListener('change', (e) => {
+  const sp = salespersons.find(s => s.id === e.target.value);
+  viewedSalesperson = sp || selectedSalesperson;
+  if (el('tabMine').style.display !== 'none') loadMyReceipts();
+  if (el('tabSummary').style.display !== 'none') loadSummary();
+});
+
 /* ---------- load salesperson + customer lists ---------- */
 async function loadLists(){
   try {
@@ -804,6 +840,7 @@ async function loadLists(){
     // re-verifies the same mapping on every save and void, so locking the
     // dropdown here is a UX convenience, not the actual security boundary.
     const hint = el('identityHint');
+    isFinance = !!data.isFinance;
 
     if (data.matchedSalesId) {
       const match = salespersons.find(sp => sp.id === data.matchedSalesId);
@@ -811,6 +848,7 @@ async function loadLists(){
         sel.value = match.id;
         sel.disabled = true;
         selectedSalesperson = match;
+        viewedSalesperson = match; // default: view your own data
         hint.textContent = tFmt('matchedAs', { name: match.name && match.name.trim() ? match.name : match.id });
         hint.className = 'hint verified';
         hint.style.display = 'block';
@@ -837,6 +875,12 @@ async function loadLists(){
       hint.className = 'hint error';
       hint.style.display = 'block';
     }
+
+    // The "viewing data for" switcher only ever shows for Finance accounts;
+    // everyone else's My receipts / Totals stay locked to their own data,
+    // same as before.
+    populateViewAsSelect();
+    el('viewAsField').style.display = (isFinance && el('tabNew').style.display === 'none') ? 'block' : 'none';
   } catch (err) {
     showToast(t('listErr'), true);
   } finally {
@@ -859,6 +903,8 @@ function switchTab(tab){
   el('tabMineBtn').classList.toggle('active', tab === 'mine');
   el('tabSummaryBtn').classList.toggle('active', tab === 'summary');
   el('submitBar').style.display = tab === 'new' ? 'block' : 'none';
+  // Finance switcher only makes sense on the read tabs, not while filing.
+  el('viewAsField').style.display = (isFinance && tab !== 'new') ? 'block' : 'none';
   if (tab === 'mine') loadMyReceipts();
   if (tab === 'summary') loadSummary();
 }
@@ -869,13 +915,13 @@ el('tabSummaryBtn').addEventListener('click', () => switchTab('summary'));
 /* ---------- my receipts: load + render ---------- */
 async function loadMyReceipts(){
   const list = el('myReceiptsList');
-  if (!selectedSalesperson) {
+  if (!viewedSalesperson) {
     list.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`;
     return;
   }
   list.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
   try {
-    const res = await fetch(`${GAS_ENDPOINT}?action=myReceipts&salesId=${encodeURIComponent(selectedSalesperson.id)}&_=${Date.now()}`, { cache: 'no-store' });
+    const res = await fetch(`${GAS_ENDPOINT}?action=myReceipts&salesId=${encodeURIComponent(viewedSalesperson.id)}&_=${Date.now()}`, { cache: 'no-store' });
     const data = await res.json();
     myReceiptsCache = data.receipts || [];
     renderMyReceipts();
@@ -886,11 +932,16 @@ async function loadMyReceipts(){
 
 function renderMyReceipts(){
   const list = el('myReceiptsList');
-  if (!selectedSalesperson) return; // avoid clobbering the "select first" message mid-language-switch
+  if (!viewedSalesperson) return; // avoid clobbering the "select first" message mid-language-switch
   if (!myReceiptsCache.length) {
     list.innerHTML = `<div class="empty-state">${t('mineEmpty')}</div>`;
     return;
   }
+  // Deleting (voiding) only ever works for your own receipts — the server
+  // enforces this too, but hiding the button when a Finance user is
+  // viewing someone else's data avoids showing an action that would just
+  // fail with a confusing error.
+  const canDelete = !!(viewedSalesperson && selectedSalesperson && viewedSalesperson.id === selectedSalesperson.id);
   list.innerHTML = myReceiptsCache.map(r => {
     const voided = r.status === 'Voided';
     const billsHtml = r.bills.map(b => `
@@ -909,7 +960,7 @@ function renderMyReceipts(){
         <div class="mr-foot">
           <span class="mr-status">${voided ? t('voided') : t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque')}</span>
           <div class="mr-actions">
-            ${voided ? '' : `<span class="mr-action danger" data-action="delete">${t('delete')}</span>`}
+            ${(!voided && canDelete) ? `<span class="mr-action danger" data-action="delete">${t('delete')}</span>` : ''}
           </div>
         </div>
       </div>
@@ -937,6 +988,8 @@ el('myReceiptsList').addEventListener('click', async (e) => {
   e.target.textContent = t('deleting');
 
   try {
+    // Void always goes through under your own identity, never viewedSalesperson —
+    // the server only allows you to void your own receipts.
     const res = await fetch(GAS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -969,7 +1022,7 @@ el('summarySeg').addEventListener('click', (e) => {
 async function loadSummary(){
   const list = el('summaryList');
   const grand = el('summaryGrand');
-  if (!selectedSalesperson) {
+  if (!viewedSalesperson) {
     grand.innerHTML = '';
     list.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`;
     return;
@@ -977,7 +1030,7 @@ async function loadSummary(){
   grand.innerHTML = '';
   list.innerHTML = `<div class="empty-state">${t('summaryLoading')}</div>`;
   try {
-    const res = await fetch(`${GAS_ENDPOINT}?action=summary&salesId=${encodeURIComponent(selectedSalesperson.id)}&groupBy=${encodeURIComponent(summaryGroupBy)}&_=${Date.now()}`, { cache: 'no-store' });
+    const res = await fetch(`${GAS_ENDPOINT}?action=summary&salesId=${encodeURIComponent(viewedSalesperson.id)}&groupBy=${encodeURIComponent(summaryGroupBy)}&_=${Date.now()}`, { cache: 'no-store' });
     const data = await res.json();
     summaryCache = data.groups || [];
     renderSummary();
@@ -989,7 +1042,7 @@ async function loadSummary(){
 function renderSummary(){
   const list = el('summaryList');
   const grand = el('summaryGrand');
-  if (!selectedSalesperson) return;
+  if (!viewedSalesperson) return;
 
   if (!summaryCache.length) {
     grand.innerHTML = '';
