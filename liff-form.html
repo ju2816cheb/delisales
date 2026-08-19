@@ -9,24 +9,26 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root{
-    --green:#06C755;
-    --green-dark:#04A648;
-    --ink:#17181A;
-    --ink-soft:#5B5F66;
-    --line-bg:#F5F6F8;
+    /* ---- Red & white theme ---- */
+    --primary:#D6293E;        /* brand red — buttons, active states, bubble */
+    --primary-dark:#A81F30;   /* pressed / darker text-on-white red */
+    --primary-bg:#FDECEE;     /* pale red tint for selected/verified backgrounds */
+    --ink:#1A1A1A;
+    --ink-soft:#65605F;
+    --page-bg:#FFFFFF;
     --card:#FFFFFF;
-    --border:#E6E8EB;
-    --amber:#FFB020;
+    --border:#ECD9DA;
+    --amber:#B8860B;
     --amber-bg:#FFF6E5;
-    --red:#E5484D;
-    --red-bg:#FDEDEE;
+    --danger:#8C1327;         /* deeper maroon — reserved for errors/void/credit so it reads distinct from brand red */
+    --danger-bg:#F6E3E1;
     --radius:14px;
   }
   *{box-sizing:border-box;}
   body{
     margin:0;
     font-family:'Noto Sans Thai','Helvetica Neue',Arial,sans-serif;
-    background:var(--line-bg);
+    background:var(--page-bg);
     color:var(--ink);
     -webkit-tap-highlight-color:transparent;
   }
@@ -36,13 +38,13 @@
 
   /* --- Header --- */
   header{ padding:6px 4px 16px; }
-  header .eyebrow{ font-size:12px; font-weight:600; color:var(--green-dark); letter-spacing:.04em; text-transform:uppercase; }
+  header .eyebrow{ font-size:12px; font-weight:600; color:var(--primary-dark); letter-spacing:.04em; text-transform:uppercase; }
   header h1{ margin:2px 0 0; font-size:21px; font-weight:600; }
 
   /* --- Signature element: live chat-bubble receipt preview --- */
   .bubble-row{ display:flex; margin-bottom:20px; }
   .bubble{
-    background:var(--green);
+    background:var(--primary);
     color:#fff;
     border-radius:16px 16px 16px 4px;
     padding:14px 16px;
@@ -58,7 +60,7 @@
   .bubble .bill-line .cn{ opacity:.9; }
   .bubble .divider{ height:1px; background:rgba(255,255,255,.3); margin:8px 0; }
   .bubble .amt{ font-size:20px; font-weight:700; margin-top:4px; }
-  .bubble .amt.neg{ color:#FFE1A8; }
+  .bubble .amt.neg{ color:#FFD9DC; }
 
   /* --- Card / section --- */
   .card{
@@ -71,7 +73,7 @@
   .field{ margin-bottom:16px; }
   .field:last-child{ margin-bottom:0; }
   label{ display:block; font-size:13px; font-weight:600; margin-bottom:7px; color:var(--ink); }
-  label .req{ color:var(--green-dark); }
+  label .req{ color:var(--primary-dark); }
   .hint{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
 
   select, input[type=text], input[type=number], input[type=date]{
@@ -86,12 +88,13 @@
     appearance:none;
     -webkit-appearance:none;
   }
-  select:focus, input:focus{ outline:none; border-color:var(--green); }
-  select:disabled{ background-color:var(--line-bg); color:var(--ink); opacity:1; border-color:var(--green); }
-  .hint.verified{ color:var(--green-dark); font-weight:600; }
+  select:focus, input:focus{ outline:none; border-color:var(--primary); }
+  select:disabled{ background-color:var(--primary-bg); color:var(--ink); opacity:1; border-color:var(--primary); }
+  .hint.verified{ color:var(--primary-dark); font-weight:600; }
   .hint.unverified{ color:var(--amber); }
+  .hint.error{ color:var(--danger); font-weight:600; }
   select{
-    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%235B5F66' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='9'><path d='M1 1l6 6 6-6' stroke='%2365605F' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     background-repeat:no-repeat;
     background-position:right 14px center;
     padding-right:34px;
@@ -109,17 +112,17 @@
   .results.open{ display:block; }
   .result-item{ padding:11px 14px; font-size:14.5px; border-bottom:1px solid var(--border); cursor:pointer; }
   .result-item:last-child{ border-bottom:none; }
-  .result-item:active{ background:var(--line-bg); }
+  .result-item:active{ background:var(--primary-bg); }
   .result-item .id{ font-weight:600; }
   .result-item .name{ color:var(--ink-soft); font-size:13px; }
   .no-results{ padding:14px; font-size:13.5px; color:var(--ink-soft); }
 
   .selected-customer{
-    margin-top:8px; padding:10px 12px; background:var(--line-bg); border-radius:10px;
+    margin-top:8px; padding:10px 12px; background:var(--primary-bg); border-radius:10px;
     font-size:13.5px; display:none; align-items:center; justify-content:space-between;
   }
   .selected-customer.show{ display:flex; }
-  .selected-customer .clear{ color:var(--green-dark); font-weight:600; cursor:pointer; }
+  .selected-customer .clear{ color:var(--primary-dark); font-weight:600; cursor:pointer; }
 
   /* payment type segmented control */
   .seg{ display:flex; gap:8px; }
@@ -128,14 +131,14 @@
     background:#fff; font-family:inherit; font-size:14px; font-weight:600; color:var(--ink-soft);
     cursor:pointer;
   }
-  .seg button.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+  .seg button.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
 
   .cheque-panel{
-    margin-top:14px; padding:14px; background:var(--amber-bg); border:1px solid #FFE1A8; border-radius:10px;
+    margin-top:14px; padding:14px; background:var(--amber-bg); border:1px solid #F0DBA3; border-radius:10px;
     display:none;
   }
   .cheque-panel.show{ display:block; }
-  .cheque-panel label{ color:#8A5A00; }
+  .cheque-panel label{ color:#7A5800; }
 
   /* --- Multi bill / credit note rows --- */
   #billRows{ margin-bottom:10px; }
@@ -149,36 +152,36 @@
     padding:6px 12px; border-radius:8px; border:1.5px solid var(--border); background:#fff;
     font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
-  .bt-btn.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
-  .bt-btn.credit.active{ border-color:var(--red); background:var(--red-bg); color:var(--red); }
-  .remove-row{ font-size:12.5px; color:var(--red); font-weight:600; cursor:pointer; padding:4px 2px; }
+  .bt-btn.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
+  .bt-btn.credit.active{ border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }
+  .remove-row{ font-size:12.5px; color:var(--danger); font-weight:600; cursor:pointer; padding:4px 2px; }
   .bill-row-fields{ display:flex; gap:8px; }
   .bill-row-fields .bill-no{ flex:1.3; }
   .bill-row-fields .amount-prefix{ flex:1; margin:0; }
   .amount-prefix.small input{ font-size:15px; padding:11px 12px 11px 30px; }
   .amount-prefix.small span{ left:12px; font-size:14.5px; }
   .add-bill-btn{
-    width:100%; padding:11px; border-radius:10px; border:1.5px dashed var(--green); background:#EAFBF1;
-    color:var(--green-dark); font-family:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
+    width:100%; padding:11px; border-radius:10px; border:1.5px dashed var(--primary); background:var(--primary-bg);
+    color:var(--primary-dark); font-family:inherit; font-size:13.5px; font-weight:600; cursor:pointer;
   }
   .bills-total{
     display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px;
     border-top:1px dashed var(--border); font-size:13.5px; font-weight:600; color:var(--ink-soft);
   }
   .bills-total .val{ font-size:16px; color:var(--ink); }
-  .bills-total .val.neg{ color:var(--red); }
+  .bills-total .val.neg{ color:var(--danger); }
 
   /* --- Receipt photo picker --- */
   .photo-btn-row{ display:flex; gap:8px; }
   .photo-btn{
     flex:1; width:100%; padding:13px 8px; border:1.5px dashed var(--border); border-radius:10px;
-    background:var(--line-bg); color:var(--ink-soft); font-family:inherit; font-size:13.5px; font-weight:600;
+    background:#FFF9F9; color:var(--ink-soft); font-family:inherit; font-size:13.5px; font-weight:600;
     cursor:pointer;
   }
   .photo-preview{ display:none; align-items:center; gap:12px; margin-top:4px; }
   .photo-preview.show{ display:flex; }
   .photo-preview img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border); }
-  .photo-preview .clear{ color:var(--red); font-weight:600; font-size:13.5px; cursor:pointer; }
+  .photo-preview .clear{ color:var(--danger); font-weight:600; font-size:13.5px; cursor:pointer; }
 
   .amount-prefix{ position:relative; }
   .amount-prefix span{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px; }
@@ -187,17 +190,17 @@
   /* --- Sticky submit bar --- */
   .submit-bar{
     position:fixed; left:0; right:0; bottom:0;
-    background:linear-gradient(180deg, rgba(245,246,248,0) 0%, var(--line-bg) 35%);
+    background:linear-gradient(180deg, rgba(255,255,255,0) 0%, var(--page-bg) 35%);
     padding:18px 16px 20px;
   }
   .submit-bar .inner{ max-width:480px; margin:0 auto; }
   button.submit{
     width:100%; padding:15px; border:none; border-radius:12px;
-    background:var(--green); color:#fff; font-family:'Kanit',sans-serif; font-size:16px; font-weight:600;
+    background:var(--primary); color:#fff; font-family:'Kanit',sans-serif; font-size:16px; font-weight:600;
     cursor:pointer;
   }
-  button.submit:disabled{ background:#B9BEC5; }
-  .error-text{ color:var(--red); font-size:12.5px; margin-top:6px; display:none; }
+  button.submit:disabled{ background:#D8B9BC; }
+  .error-text{ color:var(--danger); font-size:12.5px; margin-top:6px; display:none; }
   .error-text.show{ display:block; }
 
   .toast{
@@ -206,7 +209,7 @@
     display:none; z-index:50; text-align:center;
   }
   .toast.show{ display:block; }
-  .toast.err{ background:var(--red); }
+  .toast.err{ background:var(--danger); }
 
   /* --- Tabs --- */
   .tabs{ display:flex; gap:8px; margin-bottom:16px; }
@@ -214,7 +217,7 @@
     flex:1; padding:10px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
     font-family:'Kanit',sans-serif; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
-  .tab-btn.active{ border-color:var(--green); background:#EAFBF1; color:var(--green-dark); }
+  .tab-btn.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
 
   /* --- My receipts --- */
   .empty-state{ text-align:center; padding:44px 16px; color:var(--ink-soft); font-size:13.5px; }
@@ -226,16 +229,23 @@
   .mr-date{ font-size:12px; color:var(--ink-soft); }
   .mr-customer{ font-size:14.5px; font-weight:600; margin-top:2px; }
   .mr-total{ font-size:16px; font-weight:700; white-space:nowrap; }
-  .mr-total.neg{ color:var(--red); }
+  .mr-total.neg{ color:var(--danger); }
   .mr-bills{ border-top:1px dashed var(--border); padding-top:8px; margin-top:4px; }
   .mr-bill-line{ display:flex; justify-content:space-between; font-size:13px; color:var(--ink-soft); padding:2px 0; }
-  .mr-bill-line span.neg{ color:var(--red); }
+  .mr-bill-line span.neg{ color:var(--danger); }
   .mr-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .mr-status{ font-size:12px; font-weight:600; color:var(--ink-soft); }
-  .mr-card.voided .mr-status{ color:var(--red); }
+  .mr-card.voided .mr-status{ color:var(--danger); }
   .mr-actions{ display:flex; }
-  .mr-action{ font-size:12.5px; font-weight:600; color:var(--green-dark); cursor:pointer; margin-left:14px; }
-  .mr-action.danger{ color:var(--red); }
+  .mr-action{ font-size:12.5px; font-weight:600; color:var(--primary-dark); cursor:pointer; margin-left:14px; }
+  .mr-action.danger{ color:var(--danger); }
+
+  /* --- Debug panel (only shown when ?debug=1 is in the URL) --- */
+  .debug-panel{
+    display:none; margin-bottom:12px; padding:10px 12px; background:#FFF7F7; border:1px dashed var(--danger);
+    border-radius:10px; font-size:11.5px; color:var(--ink-soft); white-space:pre-wrap; word-break:break-all;
+  }
+  .debug-panel.show{ display:block; }
 </style>
 </head>
 <body>
@@ -247,6 +257,8 @@
     <div class="eyebrow">Sales Receipt</div>
     <h1>Log a customer receipt</h1>
   </header>
+
+  <div class="debug-panel" id="debugPanel"></div>
 
   <div class="tabs">
     <button type="button" class="tab-btn active" id="tabNewBtn">New receipt</button>
@@ -360,7 +372,7 @@
 <script>
 /* ====================== CONFIG — replace these two values ====================== */
 const LIFF_ID = "2011154066-sbzdMqVz";                 // from LINE Developers console
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbyRsLQ8xhoLZN-vCCaACPhnbzlqkRFrUevZtX1UHqIKuUC_wi0MlC34mQebisYwkKzpdg/exec"; // from Apps Script deployment
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAp2OXVEOVRxKQEvqfCmRZL9QZz3bjgcAyk2z8IHR5p5Q58lnlMFcL7yNY4QTgE4EUFg/exec"; // from Apps Script deployment
 /* ================================================================================ */
 
 let customers = [];
@@ -370,6 +382,12 @@ let selectedSalesperson = null;
 let paymentType = null;
 let receiptImageDataUrl = null;
 let profile = { userId: "", displayName: "" };
+
+// NEW: tracks *why* profile.userId might be empty, so the UI (and the
+// on-screen debug panel) can tell "LIFF SDK never loaded" apart from
+// "loaded fine, but this isn't the LINE app" apart from "loaded, logged in,
+// but liff.init() itself threw" — three very different fixes.
+let liffStatus = { sdkPresent: false, initOk: false, isInClient: false, error: null };
 
 let billRows = [];   // [{ rowId, type: 'Bill'|'Credit Note', billNo, amount }]
 let rowCounter = 0;
@@ -512,6 +530,20 @@ function showToast(msg, isErr){
   setTimeout(() => t.className = 'toast', 2600);
 }
 
+/* ---------- debug panel (visit the form with ?debug=1 appended to see it) ---------- */
+function renderDebugPanel(){
+  if (!new URLSearchParams(window.location.search).has('debug')) return;
+  const panel = el('debugPanel');
+  panel.className = 'debug-panel show';
+  panel.textContent =
+    `LIFF SDK loaded: ${liffStatus.sdkPresent}\n` +
+    `liff.init() ok: ${liffStatus.initOk}\n` +
+    `Inside LINE app: ${liffStatus.isInClient}\n` +
+    `Init error: ${liffStatus.error || '(none)'}\n` +
+    `profile.userId: ${profile.userId || '(empty)'}\n` +
+    `matchedSalesId from server: ${window.__matchedSalesId || '(none)'}`;
+}
+
 /* ---------- receipt photo: read + compress client-side before upload ---------- */
 function fileToCompressedDataUrl(file){
   return new Promise((resolve, reject) => {
@@ -581,6 +613,7 @@ async function loadLists(){
     const data = await res.json();
     salespersons = data.salespersons || [];
     customers = data.customers || [];
+    window.__matchedSalesId = data.matchedSalesId || null; // for the debug panel
 
     const sel = el('salesperson');
     salespersons.forEach(sp => {
@@ -597,6 +630,7 @@ async function loadLists(){
     // re-verifies the same mapping on every save and void, so locking the
     // dropdown here is a UX convenience, not the actual security boundary.
     const hint = el('identityHint');
+
     if (data.matchedSalesId) {
       const match = salespersons.find(sp => sp.id === data.matchedSalesId);
       if (match) {
@@ -607,17 +641,32 @@ async function loadLists(){
         hint.className = 'hint verified';
         hint.style.display = 'block';
         updatePreview();
+      } else {
+        // Server matched a Sales ID that no longer exists in the
+        // Salespersons tab — a real (if rare) data-mismatch case, worth
+        // surfacing rather than failing silently.
+        hint.textContent = `Your LINE account is linked to Sales ID "${data.matchedSalesId}", but that ID isn't in the Salespersons sheet. Ask your admin to check it.`;
+        hint.className = 'hint error';
+        hint.style.display = 'block';
       }
     } else if (profile.userId) {
-      // Opened from LINE, but this account isn't linked yet — leave the
-      // dropdown open so a new salesperson isn't blocked before an admin
-      // registers them, but say so, so it's not confusing.
+      // We have a confirmed LINE identity, but the server found no row for
+      // it in LineUsers — this account genuinely isn't registered yet.
       hint.textContent = 'Your LINE account isn\'t linked to a salesperson yet — ask your admin to add you.';
       hint.className = 'hint unverified';
+      hint.style.display = 'block';
+    } else if (liffStatus.error) {
+      // We never got a LINE identity at all because liff.init()/getProfile()
+      // failed — this is the "not detected" case. Say so explicitly instead
+      // of quietly leaving the dropdown unlocked with no explanation.
+      hint.textContent = 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.';
+      hint.className = 'hint error';
       hint.style.display = 'block';
     }
   } catch (err) {
     showToast('Could not load salesperson/customer lists', true);
+  } finally {
+    renderDebugPanel();
   }
 }
 
@@ -903,16 +952,42 @@ el('receiptForm').addEventListener('submit', async (e) => {
 
 /* ---------- init ---------- */
 (async function init(){
-  try {
-    if (window.liff) {
+  liffStatus.sdkPresent = !!window.liff;
+
+  // FIX: the old version wrapped this whole block in a try/catch that
+  // silently swallowed ANY failure — wrong LIFF_ID, the LIFF SDK script
+  // being slow/blocked, liff.init() itself erroring, liff.getProfile()
+  // rejecting — and just moved on with an empty profile.userId. That is
+  // almost certainly the root cause of "lineUser not matching or
+  // detected": nothing ever told you *which* of those happened. Now every
+  // failure is logged to the console (and to the on-screen panel if you
+  // add ?debug=1 to the URL) and surfaced to the person in identityHint
+  // rather than failing invisibly.
+  if (window.liff) {
+    try {
       await liff.init({ liffId: LIFF_ID });
-      if (!liff.isLoggedIn()) { liff.login(); return; }
+      liffStatus.isInClient = liff.isInClient();
+
+      if (!liff.isLoggedIn()) {
+        liff.login();
+        return; // page will reload after LINE login redirects back
+      }
+
       const p = await liff.getProfile();
+      if (!p || !p.userId) {
+        throw new Error('liff.getProfile() returned no userId');
+      }
       profile = { userId: p.userId, displayName: p.displayName };
+      liffStatus.initOk = true;
+    } catch (err) {
+      liffStatus.error = err && err.message ? err.message : String(err);
+      console.error('LIFF identity setup failed:', err);
     }
-  } catch (err) {
-    // Not inside LINE (e.g. testing in a browser) — proceed without a profile
+  } else {
+    liffStatus.error = 'LIFF SDK did not load (blocked, offline, or script tag failed)';
+    console.error(liffStatus.error);
   }
+
   const today = new Date();
   const iso = today.toISOString().slice(0, 10);
   el('paymentDate').value = iso;
