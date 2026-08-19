@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
@@ -37,12 +37,21 @@
   .wrap{ max-width:480px; margin:0 auto; padding:16px 16px 110px; }
 
   /* --- Header --- */
-  header{ padding:6px 4px 16px; }
+  header{ padding:6px 4px 16px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   header .eyebrow{ font-size:12px; font-weight:600; color:var(--primary-dark); letter-spacing:.04em; text-transform:uppercase; }
   header h1{ margin:2px 0 0; font-size:21px; font-weight:600; }
 
+  /* --- Language toggle --- */
+  .lang-toggle{ display:flex; gap:4px; background:var(--primary-bg); padding:3px; border-radius:9px; flex-shrink:0; margin-top:2px; }
+  .lang-btn{
+    border:none; background:transparent; padding:6px 10px; border-radius:7px;
+    font-family:'Kanit',sans-serif; font-size:12.5px; font-weight:600; color:var(--primary-dark);
+    cursor:pointer; opacity:.55;
+  }
+  .lang-btn.active{ background:var(--primary); color:#fff; opacity:1; }
+
   /* --- Signature element: live chat-bubble receipt preview --- */
-  .bubble-row{ display:flex; margin-bottom:20px; }
+  .bubble-row{ display:flex; margin-top:4px; margin-bottom:4px; }
   .bubble{
     background:var(--primary);
     color:#fff;
@@ -214,8 +223,8 @@
   /* --- Tabs --- */
   .tabs{ display:flex; gap:8px; margin-bottom:16px; }
   .tab-btn{
-    flex:1; padding:10px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
-    font-family:'Kanit',sans-serif; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+    flex:1; padding:10px 4px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
+    font-family:'Kanit',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
   .tab-btn.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
 
@@ -240,6 +249,28 @@
   .mr-action{ font-size:12.5px; font-weight:600; color:var(--primary-dark); cursor:pointer; margin-left:14px; }
   .mr-action.danger{ color:var(--danger); }
 
+  /* --- Totals tab --- */
+  .summary-seg{ display:flex; gap:8px; margin-bottom:14px; }
+  .summary-seg button{
+    flex:1; padding:11px 4px; border-radius:10px; border:1.5px solid var(--border);
+    background:#fff; font-family:'Kanit',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+  }
+  .summary-seg button.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
+  .sum-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .sum-card .sum-label{ font-size:14.5px; font-weight:600; }
+  .sum-card .sum-count{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .sum-card .sum-total{ font-size:16.5px; font-weight:700; white-space:nowrap; }
+  .sum-card .sum-total.neg{ color:var(--danger); }
+  .sum-grand{
+    display:flex; justify-content:space-between; align-items:center; padding:14px 16px;
+    background:var(--primary); color:#fff; border-radius:var(--radius); margin-bottom:14px;
+  }
+  .sum-grand .sg-label{ font-size:13px; opacity:.9; font-weight:600; }
+  .sum-grand .sg-total{ font-size:20px; font-weight:700; }
+
   /* --- Debug panel (only shown when ?debug=1 is in the URL) --- */
   .debug-panel{
     display:none; margin-bottom:12px; padding:10px 12px; background:#FFF7F7; border:1px dashed var(--danger);
@@ -254,62 +285,62 @@
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Sales Receipt</div>
-    <h1>Log a customer receipt</h1>
+    <div>
+      <div class="eyebrow" data-i18n="eyebrow">Sales Receipt</div>
+      <h1 data-i18n="title">Log a customer receipt</h1>
+    </div>
+    <div class="lang-toggle" id="langToggle">
+      <button type="button" class="lang-btn" data-lang="th">ไทย</button>
+      <button type="button" class="lang-btn" data-lang="en">EN</button>
+    </div>
   </header>
 
   <div class="debug-panel" id="debugPanel"></div>
 
   <div class="tabs">
-    <button type="button" class="tab-btn active" id="tabNewBtn">New receipt</button>
-    <button type="button" class="tab-btn" id="tabMineBtn">My receipts</button>
+    <button type="button" class="tab-btn active" id="tabNewBtn" data-i18n="tabNew">New receipt</button>
+    <button type="button" class="tab-btn" id="tabMineBtn" data-i18n="tabMine">My receipts</button>
+    <button type="button" class="tab-btn" id="tabSummaryBtn" data-i18n="tabSummary">Totals</button>
   </div>
 
   <div id="tabNew">
-  <div class="bubble-row">
-    <div class="bubble" id="preview">
-      <div class="bt">Will be recorded as</div>
-      <div class="bl" id="previewBody"><span class="empty">Fill in the form below — this preview updates as you go.</span></div>
-    </div>
-  </div>
-
   <form id="receiptForm">
     <div class="card">
       <div class="field">
-        <label>Sales person <span class="req">*</span></label>
+        <label><span data-i18n="salesperson">Sales person</span> <span class="req">*</span></label>
         <select id="salesperson" required>
-          <option value="" disabled selected>Select sales person</option>
+          <option value="" disabled selected data-i18n="salespersonPlaceholder">Select sales person</option>
         </select>
         <div class="hint" id="identityHint" style="display:none;"></div>
       </div>
 
       <div class="field">
-        <label>Payment date <span class="req">*</span></label>
+        <label><span data-i18n="paymentDate">Payment date</span> <span class="req">*</span></label>
         <input type="date" id="paymentDate" required />
-        <div class="hint">Defaults to today — change if logging a past receipt.</div>
+        <div class="hint" data-i18n="paymentDateHint">Defaults to today — change if logging a past receipt.</div>
       </div>
 
       <div class="field">
-        <label>Customer <span class="req">*</span></label>
+        <label><span data-i18n="customer">Customer</span> <span class="req">*</span></label>
         <div class="search-box">
-          <input type="text" id="customerSearch" placeholder="Search by customer ID or name" autocomplete="off" />
+          <input type="text" id="customerSearch" data-i18n-placeholder="customerPlaceholder" placeholder="Search by customer ID or name" autocomplete="off" />
           <div class="results" id="customerResults"></div>
         </div>
         <div class="selected-customer" id="selectedCustomer">
           <span id="selectedCustomerText"></span>
-          <span class="clear" id="clearCustomer">Change</span>
+          <span class="clear" id="clearCustomer" data-i18n="change">Change</span>
         </div>
       </div>
     </div>
 
     <div class="card">
       <div class="field" style="margin-bottom:0;">
-        <label>Bills <span class="req">*</span></label>
+        <label><span data-i18n="bills">Bills</span> <span class="req">*</span></label>
         <div id="billRows"></div>
-        <button type="button" class="add-bill-btn" id="addBillBtn">+ Add another bill</button>
-        <div class="hint">Add one row per bill if the customer is paying for more than one invoice. Use <b>Credit Note</b> to deduct from the total — it's recorded as a negative amount.</div>
+        <button type="button" class="add-bill-btn" id="addBillBtn" data-i18n="addBill">+ Add another bill</button>
+        <div class="hint" id="billsHintText"></div>
         <div class="bills-total">
-          <span>Total</span>
+          <span data-i18n="total">Total</span>
           <span class="val" id="billsTotalVal">฿ 0.00</span>
         </div>
       </div>
@@ -317,20 +348,20 @@
 
     <div class="card">
       <div class="field" style="margin-bottom:0;">
-        <label>Payment type <span class="req">*</span></label>
+        <label data-i18n="paymentType">Payment type <span class="req">*</span></label>
         <div class="seg" id="paymentSeg">
-          <button type="button" data-value="Cash">Cash</button>
-          <button type="button" data-value="Transfer">Transfer</button>
-          <button type="button" data-value="Cheque">Cheque</button>
+          <button type="button" data-value="Cash" data-i18n="cash">Cash</button>
+          <button type="button" data-value="Transfer" data-i18n="transfer">Transfer</button>
+          <button type="button" data-value="Cheque" data-i18n="cheque">Cheque</button>
         </div>
 
         <div class="cheque-panel" id="chequePanel">
           <div class="field">
-            <label>Cheque type <span class="req">*</span></label>
-            <input type="text" id="chequeType" placeholder="e.g. Company, Personal, PDC" />
+            <label><span data-i18n="chequeType">Cheque type</span> <span class="req">*</span></label>
+            <input type="text" id="chequeType" data-i18n-placeholder="chequeTypePlaceholder" placeholder="e.g. Company, Personal, PDC" />
           </div>
           <div class="field" style="margin-bottom:0;">
-            <label>Cheque date <span class="req">*</span></label>
+            <label><span data-i18n="chequeDate">Cheque date</span> <span class="req">*</span></label>
             <input type="date" id="chequeDate" />
           </div>
         </div>
@@ -339,17 +370,27 @@
 
     <div class="card">
       <div class="field" style="margin-bottom:0;">
-        <label>Receipt image <span class="req">*</span></label>
+        <label><span data-i18n="receiptImage">Receipt image</span> <span class="req">*</span></label>
         <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" style="display:none;" />
         <input type="file" id="receiptGalleryInput" accept="image/*" style="display:none;" />
         <div class="photo-btn-row" id="photoBtnRow">
-          <button type="button" class="photo-btn" id="cameraBtn">📷 Take photo</button>
-          <button type="button" class="photo-btn" id="galleryBtn">🖼️ Choose from gallery</button>
+          <button type="button" class="photo-btn" id="cameraBtn" data-i18n="takePhoto">📷 Take photo</button>
+          <button type="button" class="photo-btn" id="galleryBtn" data-i18n="chooseGallery">🖼️ Choose from gallery</button>
         </div>
         <div class="photo-preview" id="photoPreview">
           <img id="photoThumb" alt="Receipt photo preview" />
-          <span class="clear" id="clearPhoto">Remove</span>
+          <span class="clear" id="clearPhoto" data-i18n="removePhoto">Remove</span>
         </div>
+      </div>
+    </div>
+
+    <!-- Live preview — placed last, right above the sticky Save button, so
+         it reflects the fully-filled-in form instead of competing with it
+         for attention at the top of the screen. -->
+    <div class="bubble-row">
+      <div class="bubble" id="preview">
+        <div class="bt" data-i18n="previewLabel">Will be recorded as</div>
+        <div class="bl" id="previewBody"><span class="empty" data-i18n="previewEmpty">Fill in the form below — this preview updates as you go.</span></div>
       </div>
     </div>
 
@@ -358,14 +399,25 @@
   </div>
 
   <div id="tabMine" style="display:none;">
-    <div class="hint" style="margin:0 4px 14px;">Your receipts from the last 7 days. Void a mistaken entry, then log the corrected one.</div>
+    <div class="hint" id="mineHintText" style="margin:0 4px 14px;"></div>
     <div id="myReceiptsList"></div>
+  </div>
+
+  <div id="tabSummary" style="display:none;">
+    <div class="hint" id="summaryHintText" style="margin:0 4px 14px;"></div>
+    <div class="summary-seg" id="summarySeg">
+      <button type="button" data-group="day" data-i18n="groupDay">By day</button>
+      <button type="button" data-group="month" class="active" data-i18n="groupMonth">By month</button>
+      <button type="button" data-group="customer" data-i18n="groupCustomer">By customer</button>
+    </div>
+    <div id="summaryGrand"></div>
+    <div id="summaryList"></div>
   </div>
 </div>
 
 <div class="submit-bar" id="submitBar">
   <div class="inner">
-    <button type="submit" form="receiptForm" class="submit" id="submitBtn">Save receipt</button>
+    <button type="submit" form="receiptForm" class="submit" id="submitBtn" data-i18n="saveReceipt">Save receipt</button>
   </div>
 </div>
 
@@ -375,6 +427,127 @@ const LIFF_ID = "2011154066-sbzdMqVz";                 // from LINE Developers c
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbxAp2OXVEOVRxKQEvqfCmRZL9QZz3bjgcAyk2z8IHR5p5Q58lnlMFcL7yNY4QTgE4EUFg/exec"; // from Apps Script deployment
 /* ================================================================================ */
 
+/* ---------- i18n: Thai / English ---------- */
+const I18N = {
+  en: {
+    eyebrow: 'Sales Receipt', title: 'Log a customer receipt',
+    tabNew: 'New receipt', tabMine: 'My receipts', tabSummary: 'Totals',
+    previewLabel: 'Will be recorded as',
+    previewEmpty: 'Fill in the form below — this preview updates as you go.',
+    salesperson: 'Sales person', salespersonPlaceholder: 'Select sales person',
+    paymentDate: 'Payment date', paymentDateHint: 'Defaults to today — change if logging a past receipt.',
+    customer: 'Customer', customerPlaceholder: 'Search by customer ID or name', change: 'Change',
+    bills: 'Bills', addBill: '+ Add another bill',
+    billsHint: 'Add one row per bill if the customer is paying for more than one invoice. Use <b>Credit Note</b> to deduct from the total — it\'s recorded as a negative amount.',
+    total: 'Total', billNoPlaceholder: 'Bill / invoice no.',
+    bill: 'Bill', creditNote: 'Credit Note', remove: 'Remove',
+    paymentType: 'Payment type', cash: 'Cash', transfer: 'Transfer', cheque: 'Cheque',
+    chequeType: 'Cheque type', chequeTypePlaceholder: 'e.g. Company, Personal, PDC', chequeDate: 'Cheque date',
+    receiptImage: 'Receipt image', takePhoto: '📷 Take photo', chooseGallery: '🖼️ Choose from gallery', removePhoto: 'Remove',
+    saveReceipt: 'Save receipt', saving: 'Saving…',
+    formErrorDefault: 'Please complete all required fields.', formErrorPhoto: 'A receipt photo is required.',
+    mineHint: 'Your receipts from the last 7 days. Delete a mistaken entry, then log the corrected one.',
+    mineEmpty: 'No receipts logged in the last 7 days.', mineLoading: 'Loading…',
+    mineLoadError: 'Could not load your receipts — check your connection.',
+    selectFirst: 'Select your name in New receipt first, then come back here.',
+    delete: 'Delete', deleting: 'Deleting…', deleteConfirm: 'Delete this receipt? This cannot be undone.',
+    deletedToast: 'Receipt deleted', deleteError: 'Could not delete that receipt',
+    savedToast: 'Receipt saved ✓', voided: 'Voided',
+    summaryHint: 'Totals from your saved receipts. Choose how to group them below.',
+    groupDay: 'By day', groupMonth: 'By month', groupCustomer: 'By customer',
+    summaryLoading: 'Loading totals…', summaryEmpty: 'No receipts to total yet.',
+    summaryLoadError: 'Could not load totals — check your connection.',
+    receipts: 'receipts', receipt: 'receipt', grandTotal: 'Grand total',
+    photoErr: 'Could not read that photo', listErr: 'Could not load salesperson/customer lists',
+    saveErr: 'Could not save that receipt', saveConnErr: 'Could not save — check your connection',
+    deleteConnErr: 'Could not delete — check your connection',
+    matchedAs: 'Verified as {name} via your LINE account',
+    linkedMismatch: 'Your LINE account is linked to Sales ID "{id}", but that ID isn\'t in the Salespersons sheet. Ask your admin to check it.',
+    notLinked: 'Not linked yet — select your name below and it will link to your LINE account automatically once you save your first receipt.',
+    identityFail: 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.',
+    noMatchingCustomer: 'No matching customer'
+  },
+  th: {
+    eyebrow: 'ใบเสร็จรับเงิน', title: 'บันทึกใบเสร็จลูกค้า',
+    tabNew: 'ใบเสร็จใหม่', tabMine: 'ใบเสร็จของฉัน', tabSummary: 'ยอดรวม',
+    previewLabel: 'จะถูกบันทึกเป็น',
+    previewEmpty: 'กรอกแบบฟอร์มด้านล่าง — ตัวอย่างนี้จะอัปเดตตามข้อมูลที่กรอก',
+    salesperson: 'พนักงานขาย', salespersonPlaceholder: 'เลือกพนักงานขาย',
+    paymentDate: 'วันที่ชำระเงิน', paymentDateHint: 'ค่าเริ่มต้นคือวันนี้ — เปลี่ยนได้หากบันทึกย้อนหลัง',
+    customer: 'ลูกค้า', customerPlaceholder: 'ค้นหาด้วยรหัสหรือชื่อลูกค้า', change: 'เปลี่ยน',
+    bills: 'บิล', addBill: '+ เพิ่มบิลอีกรายการ',
+    billsHint: 'เพิ่มหนึ่งแถวต่อหนึ่งบิล หากลูกค้าชำระมากกว่าหนึ่งใบแจ้งหนี้ ใช้ <b>ใบลดหนี้</b> เพื่อหักออกจากยอดรวม — จะถูกบันทึกเป็นจำนวนติดลบ',
+    total: 'ยอดรวม', billNoPlaceholder: 'เลขที่บิล / ใบแจ้งหนี้',
+    bill: 'บิล', creditNote: 'ใบลดหนี้', remove: 'ลบ',
+    paymentType: 'ประเภทการชำระเงิน', cash: 'เงินสด', transfer: 'โอนเงิน', cheque: 'เช็ค',
+    chequeType: 'ประเภทเช็ค', chequeTypePlaceholder: 'เช่น บริษัท, ส่วนตัว, PDC', chequeDate: 'วันที่เช็ค',
+    receiptImage: 'รูปใบเสร็จ', takePhoto: '📷 ถ่ายรูป', chooseGallery: '🖼️ เลือกจากคลังภาพ', removePhoto: 'ลบ',
+    saveReceipt: 'บันทึกใบเสร็จ', saving: 'กำลังบันทึก…',
+    formErrorDefault: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', formErrorPhoto: 'ต้องแนบรูปใบเสร็จ',
+    mineHint: 'ใบเสร็จของคุณใน 7 วันที่ผ่านมา ลบรายการที่ผิดพลาด แล้วบันทึกรายการที่ถูกต้องใหม่',
+    mineEmpty: 'ไม่มีใบเสร็จที่บันทึกใน 7 วันที่ผ่านมา', mineLoading: 'กำลังโหลด…',
+    mineLoadError: 'ไม่สามารถโหลดใบเสร็จของคุณได้ — ตรวจสอบการเชื่อมต่อ',
+    selectFirst: 'เลือกชื่อของคุณในแท็บ "ใบเสร็จใหม่" ก่อน แล้วกลับมาที่นี่',
+    delete: 'ลบ', deleting: 'กำลังลบ…', deleteConfirm: 'ลบใบเสร็จนี้? ไม่สามารถย้อนกลับได้',
+    deletedToast: 'ลบใบเสร็จแล้ว', deleteError: 'ไม่สามารถลบใบเสร็จนี้ได้',
+    savedToast: 'บันทึกใบเสร็จแล้ว ✓', voided: 'ยกเลิกแล้ว',
+    summaryHint: 'ยอดรวมจากใบเสร็จที่บันทึกไว้ เลือกวิธีจัดกลุ่มด้านล่าง',
+    groupDay: 'รายวัน', groupMonth: 'รายเดือน', groupCustomer: 'ตามลูกค้า',
+    summaryLoading: 'กำลังโหลดยอดรวม…', summaryEmpty: 'ยังไม่มีใบเสร็จให้สรุปยอด',
+    summaryLoadError: 'ไม่สามารถโหลดยอดรวมได้ — ตรวจสอบการเชื่อมต่อ',
+    receipts: 'ใบเสร็จ', receipt: 'ใบเสร็จ', grandTotal: 'ยอดรวมทั้งหมด',
+    photoErr: 'ไม่สามารถอ่านรูปนี้ได้', listErr: 'ไม่สามารถโหลดรายชื่อพนักงานขาย/ลูกค้าได้',
+    saveErr: 'ไม่สามารถบันทึกใบเสร็จนี้ได้', saveConnErr: 'ไม่สามารถบันทึกได้ — ตรวจสอบการเชื่อมต่อ',
+    deleteConnErr: 'ไม่สามารถลบได้ — ตรวจสอบการเชื่อมต่อ',
+    matchedAs: 'ยืนยันตัวตนเป็น {name} ผ่านบัญชี LINE ของคุณ',
+    linkedMismatch: 'บัญชี LINE ของคุณเชื่อมกับรหัสพนักงานขาย "{id}" แต่ไม่พบรหัสนี้ในชีต Salespersons กรุณาแจ้งแอดมินให้ตรวจสอบ',
+    notLinked: 'ยังไม่ได้เชื่อมบัญชี — เลือกชื่อของคุณด้านล่าง ระบบจะเชื่อมกับบัญชี LINE ของคุณโดยอัตโนมัติเมื่อคุณบันทึกใบเสร็จแรกสำเร็จ',
+    identityFail: 'ไม่สามารถยืนยันตัวตน LINE ของคุณโดยอัตโนมัติได้ — เลือกชื่อของคุณเอง หรือเปิดแบบฟอร์มนี้จากแชท LINE อีกครั้ง',
+    noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน'
+  }
+};
+
+let currentLang = 'th';
+try {
+  const saved = localStorage.getItem('receiptFormLang');
+  if (saved === 'en' || saved === 'th') currentLang = saved;
+} catch (err) { /* localStorage unavailable — default to Thai */ }
+
+function t(key){ return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+function tFmt(key, vars){
+  let s = t(key);
+  Object.keys(vars || {}).forEach(k => { s = s.replace(`{${k}}`, vars[k]); });
+  return s;
+}
+
+function applyLanguage(lang){
+  currentLang = lang;
+  try { localStorage.setItem('receiptFormLang', lang); } catch (err) { /* ignore */ }
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll('[data-i18n]').forEach(node => {
+    node.textContent = t(node.getAttribute('data-i18n'));
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(node => {
+    node.placeholder = t(node.getAttribute('data-i18n-placeholder'));
+  });
+
+  el('billsHintText').innerHTML = t('billsHint');
+  el('mineHintText').textContent = t('mineHint');
+  el('summaryHintText').textContent = t('summaryHint');
+
+  [...el('langToggle').children].forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+
+  // re-render anything built dynamically in JS so it picks up the new language
+  renderBillRows();
+  updatePreview();
+  if (el('tabMine').style.display !== 'none') renderMyReceipts();
+  if (el('tabSummary').style.display !== 'none') renderSummary();
+}
+
+// function declarations are hoisted, so el() is safe to use above this line too
+function el(id){ return document.getElementById(id); }
+
 let customers = [];
 let salespersons = [];
 let selectedCustomer = null;
@@ -383,17 +556,17 @@ let paymentType = null;
 let receiptImageDataUrl = null;
 let profile = { userId: "", displayName: "" };
 
-// NEW: tracks *why* profile.userId might be empty, so the UI (and the
-// on-screen debug panel) can tell "LIFF SDK never loaded" apart from
-// "loaded fine, but this isn't the LINE app" apart from "loaded, logged in,
-// but liff.init() itself threw" — three very different fixes.
+// tracks *why* profile.userId might be empty, so the UI (and the on-screen
+// debug panel) can tell "LIFF SDK never loaded" apart from "loaded fine,
+// but this isn't the LINE app" apart from "loaded, logged in, but
+// liff.init() itself threw" — three very different fixes.
 let liffStatus = { sdkPresent: false, initOk: false, isInClient: false, error: null };
 
 let billRows = [];   // [{ rowId, type: 'Bill'|'Credit Note', billNo, amount }]
 let rowCounter = 0;
 let myReceiptsCache = [];
-
-const el = (id) => document.getElementById(id);
+let summaryGroupBy = 'month';
+let summaryCache = [];
 
 function money(n){
   const num = parseFloat(n);
@@ -421,17 +594,18 @@ function removeBillRow(rowId){
 
 function renderBillRows(){
   const container = el('billRows');
+  if (!container) return;
   container.innerHTML = billRows.map(r => `
     <div class="bill-row" data-row-id="${r.rowId}">
       <div class="bill-row-head">
         <div class="bill-type-toggle">
-          <button type="button" class="bt-btn ${r.type === 'Bill' ? 'active' : ''}" data-type="Bill">Bill</button>
-          <button type="button" class="bt-btn credit ${r.type === 'Credit Note' ? 'active' : ''}" data-type="Credit Note">Credit Note</button>
+          <button type="button" class="bt-btn ${r.type === 'Bill' ? 'active' : ''}" data-type="Bill">${t('bill')}</button>
+          <button type="button" class="bt-btn credit ${r.type === 'Credit Note' ? 'active' : ''}" data-type="Credit Note">${t('creditNote')}</button>
         </div>
-        ${billRows.length > 1 ? `<span class="remove-row" data-action="remove">Remove</span>` : ''}
+        ${billRows.length > 1 ? `<span class="remove-row" data-action="remove">${t('remove')}</span>` : ''}
       </div>
       <div class="bill-row-fields">
-        <input type="text" class="bill-no" placeholder="Bill / invoice no." value="${r.billNo.replace(/"/g,'&quot;')}" />
+        <input type="text" class="bill-no" placeholder="${t('billNoPlaceholder')}" value="${r.billNo.replace(/"/g,'&quot;')}" />
         <div class="amount-prefix small">
           <span>฿</span>
           <input type="number" class="bill-amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${r.amount}" />
@@ -491,15 +665,15 @@ function updatePreview(){
   const chequeDate = el('chequeDate').value;
 
   if (!selectedSalesperson && !selectedCustomer && bills.length === 0) {
-    el('previewBody').innerHTML = '<span class="empty">Fill in the form below — this preview updates as you go.</span>';
+    el('previewBody').innerHTML = `<span class="empty">${t('previewEmpty')}</span>`;
     return;
   }
 
   let lines = [];
   if (selectedSalesperson) lines.push(`<b>${selectedSalesperson.name}</b> (${selectedSalesperson.id})`);
-  if (selectedCustomer) lines.push(`Customer ${selectedCustomer.id} — ${selectedCustomer.name}`);
+  if (selectedCustomer) lines.push(`${t('customer')} ${selectedCustomer.id} — ${selectedCustomer.name}`);
   if (paymentType) {
-    let pt = paymentType;
+    let pt = t(paymentType === 'Cash' ? 'cash' : paymentType === 'Transfer' ? 'transfer' : 'cheque');
     if (paymentType === 'Cheque') {
       let extra = [chequeType, chequeDate].filter(Boolean).join(', ');
       if (extra) pt += ` (${extra})`;
@@ -512,22 +686,22 @@ function updatePreview(){
   if (bills.length) {
     html += '<div class="divider"></div>';
     html += bills.map(b => {
-      const label = b.type === 'Credit Note' ? 'CN' : 'Bill';
+      const label = b.type === 'Credit Note' ? 'CN' : t('bill');
       return `<div class="bill-line"><span>${label} ${b.billNo || '—'}</span><span class="${b.type === 'Credit Note' ? 'cn' : ''}">${formatSigned(b.amount)}</span></div>`;
     }).join('');
   }
 
-  if (receiptImageDataUrl) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 Photo attached</div>`;
+  if (receiptImageDataUrl) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 ${t('receiptImage')}</div>`;
   html += `<div class="amt${total < 0 ? ' neg' : ''}">${formatSigned(total)}</div>`;
 
   el('previewBody').innerHTML = html;
 }
 
 function showToast(msg, isErr){
-  const t = el('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (isErr ? ' err' : '');
-  setTimeout(() => t.className = 'toast', 2600);
+  const t2 = el('toast');
+  t2.textContent = msg;
+  t2.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t2.className = 'toast', 2600);
 }
 
 /* ---------- debug panel (visit the form with ?debug=1 appended to see it) ---------- */
@@ -583,7 +757,7 @@ async function handlePhotoFile(file){
     row.style.display = 'none';
     updatePreview();
   } catch (err) {
-    showToast('Could not read that photo', true);
+    showToast(t('photoErr'), true);
   }
 }
 
@@ -637,7 +811,7 @@ async function loadLists(){
         sel.value = match.id;
         sel.disabled = true;
         selectedSalesperson = match;
-        hint.textContent = `Verified as ${match.name} via your LINE account`;
+        hint.textContent = tFmt('matchedAs', { name: match.name });
         hint.className = 'hint verified';
         hint.style.display = 'block';
         updatePreview();
@@ -645,26 +819,26 @@ async function loadLists(){
         // Server matched a Sales ID that no longer exists in the
         // Salespersons tab — a real (if rare) data-mismatch case, worth
         // surfacing rather than failing silently.
-        hint.textContent = `Your LINE account is linked to Sales ID "${data.matchedSalesId}", but that ID isn't in the Salespersons sheet. Ask your admin to check it.`;
+        hint.textContent = tFmt('linkedMismatch', { id: data.matchedSalesId });
         hint.className = 'hint error';
         hint.style.display = 'block';
       }
     } else if (profile.userId) {
       // We have a confirmed LINE identity, but the server found no row for
       // it in LineUsers — this account genuinely isn't registered yet.
-      hint.textContent = 'Your LINE account isn\'t linked to a salesperson yet — ask your admin to add you.';
+      hint.textContent = t('notLinked');
       hint.className = 'hint unverified';
       hint.style.display = 'block';
     } else if (liffStatus.error) {
       // We never got a LINE identity at all because liff.init()/getProfile()
       // failed — this is the "not detected" case. Say so explicitly instead
       // of quietly leaving the dropdown unlocked with no explanation.
-      hint.textContent = 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.';
+      hint.textContent = t('identityFail');
       hint.className = 'hint error';
       hint.style.display = 'block';
     }
   } catch (err) {
-    showToast('Could not load salesperson/customer lists', true);
+    showToast(t('listErr'), true);
   } finally {
     renderDebugPanel();
   }
@@ -678,45 +852,49 @@ el('salesperson').addEventListener('change', (e) => {
 
 /* ---------- tabs ---------- */
 function switchTab(tab){
-  const isNew = tab === 'new';
-  el('tabNew').style.display = isNew ? 'block' : 'none';
-  el('tabMine').style.display = isNew ? 'none' : 'block';
-  el('tabNewBtn').classList.toggle('active', isNew);
-  el('tabMineBtn').classList.toggle('active', !isNew);
-  el('submitBar').style.display = isNew ? 'block' : 'none';
-  if (!isNew) loadMyReceipts();
+  el('tabNew').style.display = tab === 'new' ? 'block' : 'none';
+  el('tabMine').style.display = tab === 'mine' ? 'block' : 'none';
+  el('tabSummary').style.display = tab === 'summary' ? 'block' : 'none';
+  el('tabNewBtn').classList.toggle('active', tab === 'new');
+  el('tabMineBtn').classList.toggle('active', tab === 'mine');
+  el('tabSummaryBtn').classList.toggle('active', tab === 'summary');
+  el('submitBar').style.display = tab === 'new' ? 'block' : 'none';
+  if (tab === 'mine') loadMyReceipts();
+  if (tab === 'summary') loadSummary();
 }
 el('tabNewBtn').addEventListener('click', () => switchTab('new'));
 el('tabMineBtn').addEventListener('click', () => switchTab('mine'));
+el('tabSummaryBtn').addEventListener('click', () => switchTab('summary'));
 
 /* ---------- my receipts: load + render ---------- */
 async function loadMyReceipts(){
   const list = el('myReceiptsList');
   if (!selectedSalesperson) {
-    list.innerHTML = `<div class="empty-state">Select your name in <b>New receipt</b> first, then come back here.</div>`;
+    list.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`;
     return;
   }
-  list.innerHTML = `<div class="empty-state">Loading…</div>`;
+  list.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
   try {
     const res = await fetch(`${GAS_ENDPOINT}?action=myReceipts&salesId=${encodeURIComponent(selectedSalesperson.id)}&_=${Date.now()}`, { cache: 'no-store' });
     const data = await res.json();
     myReceiptsCache = data.receipts || [];
     renderMyReceipts();
   } catch (err) {
-    list.innerHTML = `<div class="empty-state">Could not load your receipts — check your connection.</div>`;
+    list.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`;
   }
 }
 
 function renderMyReceipts(){
   const list = el('myReceiptsList');
+  if (!selectedSalesperson) return; // avoid clobbering the "select first" message mid-language-switch
   if (!myReceiptsCache.length) {
-    list.innerHTML = `<div class="empty-state">No receipts logged in the last 7 days.</div>`;
+    list.innerHTML = `<div class="empty-state">${t('mineEmpty')}</div>`;
     return;
   }
   list.innerHTML = myReceiptsCache.map(r => {
     const voided = r.status === 'Voided';
     const billsHtml = r.bills.map(b => `
-      <div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : 'Bill'} ${b.billNo}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
+      <div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : t('bill')} ${b.billNo}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
     `).join('');
     return `
       <div class="mr-card ${voided ? 'voided' : ''}" data-receipt-id="${r.receiptId}">
@@ -729,9 +907,9 @@ function renderMyReceipts(){
         </div>
         <div class="mr-bills">${billsHtml}</div>
         <div class="mr-foot">
-          <span class="mr-status">${voided ? 'Voided' : r.paymentType}</span>
+          <span class="mr-status">${voided ? t('voided') : t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque')}</span>
           <div class="mr-actions">
-            ${voided ? '' : `<span class="mr-action" data-action="duplicate">Duplicate &amp; edit</span><span class="mr-action danger" data-action="void">Void</span>`}
+            ${voided ? '' : `<span class="mr-action danger" data-action="delete">${t('delete')}</span>`}
           </div>
         </div>
       </div>
@@ -739,87 +917,114 @@ function renderMyReceipts(){
   }).join('');
 }
 
+// A receipt is never actually removed from the Sheet — "Delete" here calls
+// the same server-side void as before (see voidReceipt() in Code.gs), which
+// flags the row Voided rather than erasing it, keeping the audit trail
+// intact. The button is just relabelled "Delete" because that's the mental
+// model salespeople actually use ("I made a mistake, get rid of it").
 el('myReceiptsList').addEventListener('click', async (e) => {
   const card = e.target.closest('.mr-card');
   const action = e.target.dataset.action;
-  if (!card || !action) return;
+  if (!card || !action || action !== 'delete') return;
   const receiptId = card.dataset.receiptId;
 
-  if (action === 'void') {
-    if (!selectedSalesperson) {
-      showToast('Select your name in New receipt first', true);
-      return;
-    }
-    if (!confirm('Void this receipt? This cannot be undone.')) return;
-    const original = e.target.textContent;
-    e.target.textContent = 'Voiding…';
+  if (!selectedSalesperson) {
+    showToast(t('selectFirst'), true);
+    return;
+  }
+  if (!confirm(t('deleteConfirm'))) return;
+  const original = e.target.textContent;
+  e.target.textContent = t('deleting');
 
-    // BUG FIX: this used to fire the request and immediately show a success
-    // toast without ever looking at the server's response. Since the server
-    // returns { success: false, error: ... } with an HTTP 200 when the void
-    // is rejected (e.g. wrong owner, already voided, not found), the old
-    // code always reported "Receipt voided" even when nothing happened —
-    // which is exactly why voiding looked broken. Now we parse the JSON and
-    // only report success (and only refresh the list) when the server
-    // actually confirms it.
-    try {
-      const res = await fetch(GAS_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'void', receiptId: receiptId, salesId: selectedSalesperson.id, lineUserId: profile.userId })
-      });
-      const result = await res.json();
+  try {
+    const res = await fetch(GAS_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'void', receiptId: receiptId, salesId: selectedSalesperson.id, lineUserId: profile.userId })
+    });
+    const result = await res.json();
 
-      if (result && result.success) {
-        showToast('Receipt voided');
-        loadMyReceipts();
-      } else {
-        showToast((result && result.error) || 'Could not void that receipt', true);
-        e.target.textContent = original;
-      }
-    } catch (err) {
-      showToast('Could not void — check your connection', true);
+    if (result && result.success) {
+      showToast(t('deletedToast'));
+      loadMyReceipts();
+    } else {
+      showToast((result && result.error) || t('deleteError'), true);
       e.target.textContent = original;
     }
-  }
-
-  if (action === 'duplicate') {
-    duplicateReceipt(receiptId);
+  } catch (err) {
+    showToast(t('deleteConnErr'), true);
+    e.target.textContent = original;
   }
 });
 
-function duplicateReceipt(receiptId){
-  const r = myReceiptsCache.find(x => x.receiptId === receiptId);
-  if (!r) return;
+/* ---------- totals tab: load + render ---------- */
+el('summarySeg').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  summaryGroupBy = btn.dataset.group;
+  [...el('summarySeg').children].forEach(b => b.classList.toggle('active', b === btn));
+  loadSummary();
+});
 
-  selectedCustomer = { id: r.customerId, name: r.customerName };
-  el('selectedCustomerText').textContent = `${r.customerId} — ${r.customerName}`;
-  el('selectedCustomer').className = 'selected-customer show';
-  el('customerSearch').style.display = 'none';
-  el('customerSearch').value = '';
+async function loadSummary(){
+  const list = el('summaryList');
+  const grand = el('summaryGrand');
+  if (!selectedSalesperson) {
+    grand.innerHTML = '';
+    list.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`;
+    return;
+  }
+  grand.innerHTML = '';
+  list.innerHTML = `<div class="empty-state">${t('summaryLoading')}</div>`;
+  try {
+    const res = await fetch(`${GAS_ENDPOINT}?action=summary&salesId=${encodeURIComponent(selectedSalesperson.id)}&groupBy=${encodeURIComponent(summaryGroupBy)}&_=${Date.now()}`, { cache: 'no-store' });
+    const data = await res.json();
+    summaryCache = data.groups || [];
+    renderSummary();
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state">${t('summaryLoadError')}</div>`;
+  }
+}
 
-  billRows = [];
-  r.bills.forEach(b => {
-    rowCounter++;
-    billRows.push({ rowId: 'row' + rowCounter, type: b.type, billNo: b.billNo, amount: String(Math.abs(b.amount)) });
-  });
-  renderBillRows();
+function renderSummary(){
+  const list = el('summaryList');
+  const grand = el('summaryGrand');
+  if (!selectedSalesperson) return;
 
-  paymentType = r.paymentType;
-  [...el('paymentSeg').children].forEach(b => b.classList.toggle('active', b.dataset.value === paymentType));
-  el('chequePanel').classList.toggle('show', paymentType === 'Cheque');
-  el('chequeType').value = r.chequeType || '';
-  el('chequeDate').value = r.chequeDate || '';
-  el('paymentDate').value = new Date().toISOString().slice(0, 10);
+  if (!summaryCache.length) {
+    grand.innerHTML = '';
+    list.innerHTML = `<div class="empty-state">${t('summaryEmpty')}</div>`;
+    return;
+  }
 
-  // photo isn't carried over — attach it fresh if needed
-  receiptImageDataUrl = null;
-  el('photoPreview').classList.remove('show');
-  el('photoBtnRow').style.display = 'flex';
+  const grandTotal = summaryCache.reduce((sum, g) => sum + g.total, 0);
+  grand.innerHTML = `
+    <div class="sum-grand">
+      <span class="sg-label">${t('grandTotal')}</span>
+      <span class="sg-total">${formatSigned(grandTotal)}</span>
+    </div>
+  `;
 
-  switchTab('new');
-  updatePreview();
-  showToast('Loaded — review and save the corrected receipt');
+  list.innerHTML = summaryCache.map(g => {
+    const label = summaryGroupBy === 'month' ? formatMonthLabel(g.label) : g.label;
+    const countLabel = g.count === 1 ? t('receipt') : t('receipts');
+    return `
+      <div class="sum-card">
+        <div>
+          <div class="sum-label">${label}</div>
+          <div class="sum-count">${g.count} ${countLabel}</div>
+        </div>
+        <div class="sum-total ${g.total < 0 ? 'neg' : ''}">${formatSigned(g.total)}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function formatMonthLabel(yyyyMM){
+  const [y, m] = String(yyyyMM).split('-').map(Number);
+  if (!y || !m) return yyyyMM;
+  const d = new Date(y, m - 1, 1);
+  return d.toLocaleDateString(currentLang === 'th' ? 'th-TH' : 'en-US', { year: 'numeric', month: 'long' });
 }
 
 /* ---------- customer search ---------- */
@@ -838,7 +1043,7 @@ el('customerSearch').addEventListener('input', (e) => {
           <div class="id">${c.id}</div>
           <div class="name">${c.name}</div>
         </div>`).join('')
-    : `<div class="no-results">No matching customer</div>`;
+    : `<div class="no-results">${t('noMatchingCustomer')}</div>`;
   box.className = 'results open';
 });
 
@@ -877,6 +1082,13 @@ el('paymentSeg').addEventListener('click', (e) => {
   el(id).addEventListener('change', updatePreview);
 });
 
+/* ---------- language toggle ---------- */
+el('langToggle').addEventListener('click', (e) => {
+  const btn = e.target.closest('.lang-btn');
+  if (!btn) return;
+  applyLanguage(btn.dataset.lang);
+});
+
 /* ---------- submit ---------- */
 el('receiptForm').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -892,16 +1104,14 @@ el('receiptForm').addEventListener('submit', async (e) => {
   if (!selectedSalesperson || !selectedCustomer || billRows.length === 0 || rowsIncomplete ||
       !paymentType || !paymentDate || !receiptImageDataUrl ||
       (paymentType === 'Cheque' && (!chequeType || !chequeDate))) {
-    el('formError').textContent = !receiptImageDataUrl
-      ? 'A receipt photo is required.'
-      : 'Please complete all required fields.';
+    el('formError').textContent = !receiptImageDataUrl ? t('formErrorPhoto') : t('formErrorDefault');
     el('formError').className = 'error-text show';
     return;
   }
 
   const btn = el('submitBtn');
   btn.disabled = true;
-  btn.textContent = 'Saving…';
+  btn.textContent = t('saving');
 
   const bills = getSignedBills();
   const totalAmount = bills.reduce((sum, b) => sum + b.amount, 0);
@@ -932,21 +1142,21 @@ el('receiptForm').addEventListener('submit', async (e) => {
     const result = await res.json();
 
     if (!result || !result.success) {
-      showToast((result && result.error) || 'Could not save that receipt', true);
+      showToast((result && result.error) || t('saveErr'), true);
       btn.disabled = false;
-      btn.textContent = 'Save receipt';
+      btn.textContent = t('saveReceipt');
       return;
     }
 
-    showToast('Receipt saved ✓');
+    showToast(t('savedToast'));
     setTimeout(() => {
       if (window.liff && liff.isInClient()) { liff.closeWindow(); }
       else { window.location.reload(); }
     }, 900);
   } catch (err) {
-    showToast('Could not save — check your connection', true);
+    showToast(t('saveConnErr'), true);
     btn.disabled = false;
-    btn.textContent = 'Save receipt';
+    btn.textContent = t('saveReceipt');
   }
 });
 
@@ -954,15 +1164,10 @@ el('receiptForm').addEventListener('submit', async (e) => {
 (async function init(){
   liffStatus.sdkPresent = !!window.liff;
 
-  // FIX: the old version wrapped this whole block in a try/catch that
-  // silently swallowed ANY failure — wrong LIFF_ID, the LIFF SDK script
-  // being slow/blocked, liff.init() itself erroring, liff.getProfile()
-  // rejecting — and just moved on with an empty profile.userId. That is
-  // almost certainly the root cause of "lineUser not matching or
-  // detected": nothing ever told you *which* of those happened. Now every
-  // failure is logged to the console (and to the on-screen panel if you
-  // add ?debug=1 to the URL) and surfaced to the person in identityHint
-  // rather than failing invisibly.
+  // Every LIFF failure mode (wrong LIFF_ID, the SDK script being
+  // slow/blocked, liff.init() erroring, liff.getProfile() rejecting) is
+  // logged to the console (and to the on-screen panel via ?debug=1) and
+  // surfaced to the person in identityHint rather than failing invisibly.
   if (window.liff) {
     try {
       await liff.init({ liffId: LIFF_ID });
@@ -992,6 +1197,7 @@ el('receiptForm').addEventListener('submit', async (e) => {
   const iso = today.toISOString().slice(0, 10);
   el('paymentDate').value = iso;
   createBillRow();
+  applyLanguage(currentLang);
   await loadLists();
 })();
 </script>
