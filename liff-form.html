@@ -472,7 +472,7 @@ const I18N = {
     tabNew: 'ใบเสร็จใหม่', tabMine: 'ใบเสร็จของฉัน', tabSummary: 'ยอดรวม',
     previewLabel: 'จะถูกบันทึกเป็น',
     previewEmpty: 'กรอกแบบฟอร์มด้านล่าง — ตัวอย่างนี้จะอัปเดตตามข้อมูลที่กรอก',
-    salesperson: 'Salesperson', salespersonPlaceholder: 'เลือกSalesperson',
+    salesperson: 'Sales', salespersonPlaceholder: 'เลือกSales',
     paymentDate: 'วันที่ชำระเงิน', paymentDateHint: 'ค่าเริ่มต้นคือวันนี้ — เปลี่ยนได้หากบันทึกย้อนหลัง',
     customer: 'ลูกค้า', customerPlaceholder: 'ค้นหาด้วยรหัสหรือชื่อลูกค้า', change: 'เปลี่ยน',
     bills: 'บิล', addBill: '+ เพิ่มบิลอีกรายการ',
@@ -496,11 +496,11 @@ const I18N = {
     summaryLoading: 'กำลังโหลดยอดรวม…', summaryEmpty: 'ยังไม่มีใบเสร็จให้สรุปยอด',
     summaryLoadError: 'ไม่สามารถโหลดยอดรวมได้ — ตรวจสอบการเชื่อมต่อ',
     receipts: 'ใบเสร็จ', receipt: 'ใบเสร็จ', grandTotal: 'ยอดรวมทั้งหมด',
-    photoErr: 'ไม่สามารถอ่านรูปนี้ได้', listErr: 'ไม่สามารถโหลดรายชื่อSalesperson/ลูกค้าได้',
+    photoErr: 'ไม่สามารถอ่านรูปนี้ได้', listErr: 'ไม่สามารถโหลดรายชื่อSales/ลูกค้าได้',
     saveErr: 'ไม่สามารถบันทึกใบเสร็จนี้ได้', saveConnErr: 'ไม่สามารถบันทึกได้ — ตรวจสอบการเชื่อมต่อ',
     deleteConnErr: 'ไม่สามารถลบได้ — ตรวจสอบการเชื่อมต่อ',
     matchedAs: 'ยืนยันตัวตนเป็น {name} ผ่านบัญชี LINE ของคุณ',
-    linkedMismatch: 'บัญชี LINE ของคุณเชื่อมกับรหัสSalesperson "{id}" แต่ไม่พบรหัสนี้ในชีต Salespersons กรุณาแจ้งแอดมินให้ตรวจสอบ',
+    linkedMismatch: 'บัญชี LINE ของคุณเชื่อมกับรหัสSales "{id}" แต่ไม่พบรหัสนี้ในชีต Salespersons กรุณาแจ้งแอดมินให้ตรวจสอบ',
     notLinked: 'ยังไม่ได้เชื่อมบัญชี — เลือกชื่อของคุณด้านล่าง ระบบจะเชื่อมกับบัญชี LINE ของคุณโดยอัตโนมัติเมื่อคุณบันทึกใบเสร็จแรกสำเร็จ',
     identityFail: 'ไม่สามารถยืนยันตัวตน LINE ของคุณโดยอัตโนมัติได้ — เลือกชื่อของคุณเอง หรือเปิดแบบฟอร์มนี้จากแชท LINE อีกครั้ง',
     noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน'
@@ -793,7 +793,7 @@ async function loadLists(){
     salespersons.forEach(sp => {
       const opt = document.createElement('option');
       opt.value = sp.id;
-      opt.textContent = sp.name;
+      opt.textContent = sp.name && sp.name.trim() ? sp.name : sp.id;
       sel.appendChild(opt);
     });
 
@@ -811,7 +811,7 @@ async function loadLists(){
         sel.value = match.id;
         sel.disabled = true;
         selectedSalesperson = match;
-        hint.textContent = tFmt('matchedAs', { name: match.name });
+        hint.textContent = tFmt('matchedAs', { name: match.name && match.name.trim() ? match.name : match.id });
         hint.className = 'hint verified';
         hint.style.display = 'block';
         updatePreview();
