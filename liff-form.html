@@ -481,6 +481,10 @@
   </div>
 
   <div id="tabStop" style="display:none;">
+    <div class="summary-seg" id="spView">
+      <button type="button" data-v="current" class="active" data-i18n="spCurrent">On stop supply</button>
+      <button type="button" data-v="removed" data-i18n="spRemoved">Removed</button>
+    </div>
     <div id="spHero"></div>
     <input type="text" id="spSearch" class="od-search" data-i18n-placeholder="spSearch" placeholder="Search customer name or code" autocomplete="off" />
     <div id="stopList"></div>
@@ -1520,16 +1524,23 @@ Object.assign(I18N.en, {
   tabStop:'Stop supply', spSearch:'Search customer name or code', spCount:'customers on stop supply',
   spNone:'No customers on stop supply.', spNoMatch:'No matching customer.', spPaidOf:'{a} of {b} invoices paid',
   spNoInv:'No overdue invoices on record', spPaid:'Paid', spPartial:'Partial',
-  spNote:'A customer is removed automatically once receipts clear all their overdue invoices.'
+  spNote:'A customer is removed automatically once receipts clear all their overdue invoices.',
+  spCurrent:'On stop supply', spRemoved:'Removed', spRemovedCount:'customers removed (cleared)',
+  spRemovedNone:'No customers removed yet.', spRemovedOn:'Removed {d}', spCleared:'Invoices cleared',
+  spRemovedNote:'Customers taken off the list automatically after receipts cleared all their overdue invoices. Newest first.'
 });
 Object.assign(I18N.th, {
   tabStop:'หยุดส่งสินค้า', spSearch:'ค้นหาชื่อหรือรหัสลูกค้า', spCount:'ราย อยู่ในรายการหยุดส่งสินค้า',
   spNone:'ไม่มีลูกค้าในรายการหยุดส่งสินค้า', spNoMatch:'ไม่พบลูกค้าที่ตรงกัน', spPaidOf:'ชำระแล้ว {a} จาก {b} บิล',
   spNoInv:'ไม่พบบิลค้างชำระ', spPaid:'ชำระแล้ว', spPartial:'ชำระบางส่วน',
-  spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ'
+  spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ',
+  spCurrent:'หยุดส่งอยู่', spRemoved:'นำออกแล้ว', spRemovedCount:'ราย ถูกนำออกจากรายการแล้ว',
+  spRemovedNone:'ยังไม่มีลูกค้าที่ถูกนำออก', spRemovedOn:'นำออก {d}', spCleared:'บิลที่ชำระแล้ว',
+  spRemovedNote:'ลูกค้าที่ถูกนำออกจากรายการอัตโนมัติหลังใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ เรียงจากล่าสุด'
 });
 
 let spData = null, spQuery = '', spOpen = {}, spReq = 0;
+let spView = 'current', rmData = null, rmOpen = {}, rmReq = 0;
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const spVisible = () => el('tabStop').style.display !== 'none';
 
@@ -1556,7 +1567,61 @@ function spCardHtml(c){
       <div class="od-right"><div class="od-amt">${esc(ex[0] || '')}</div><div class="od-sub">${esc(eh[0] || '')}</div></div></div>${body}</div>`;
 }
 
+function rmCardHtml(c, uid){
+  const h = rmData.headers || [], ex = c.cells.slice(2), eh = h.slice(2);
+  let body = '';
+  if (rmOpen[uid]) {
+    body = '<div class="od-body">' +
+      ex.map((v, i) => v ? `<div class="od-line"><span>${esc(eh[i] || '')}</span><b>${esc(v)}</b></div>` : '').join('') +
+      `<div class="od-lbl" style="margin:12px 0 2px">${t('spCleared')}</div>` +
+      c.invoices.map(i => `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b><span class="od-chip ok">${t('spPaid')}${i.paidAt ? ' · ' + esc(i.paidAt) : ''}</span></span></div>`).join('') +
+      '</div>';
+  }
+  return `<div class="od-card done" data-cid="${esc(uid)}">
+    <div class="od-head"><div><div class="od-name">${esc(c.cells[0] || c.customerId)}</div>
+      <div class="od-sub">${esc(c.cells[1] || c.customerId)}</div>
+      <span class="od-chip ok">${tFmt('spRemovedOn', { d: esc(c.removedAt) })}</span></div>
+      <div class="od-right"><div class="od-amt">${esc(ex[0] || '')}</div><div class="od-sub">${esc(eh[0] || '')}</div></div></div>${body}</div>`;
+}
+
+function renderRemoved(){
+  if (!rmData) return;
+  const all = rmData.customers || [];
+  el('spHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px;background:#1F7A4D">
+      <div class="sg-total" style="margin:2px 0 4px">${rmData.count != null ? rmData.count : all.length}</div>
+      <div class="sg-label">${t('spRemovedCount')}</div></div>
+    <div class="hint" style="margin:0 4px 12px">${t('spRemovedNote')}</div>`;
+  const q = spQuery.trim().toLowerCase();
+  const rows = all.map((c, i) => ({ c: c, uid: c.customerId + '#' + i }))
+    .filter(x => !q || x.c.cells.some(v => String(v).toLowerCase().includes(q)) || x.c.customerId.toLowerCase().includes(q));
+  el('stopList').innerHTML = rows.length ? rows.map(x => rmCardHtml(x.c, x.uid)).join('')
+    : `<div class="empty-state">${q ? t('spNoMatch') : t('spRemovedNone')}</div>`;
+}
+
+async function loadRemoved(){
+  const box = el('stopList');
+  if (!profile.userId) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('identityFail')}</div>`; return; }
+  const my = ++rmReq;
+  if (!rmData) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`; }
+  try {
+    const d = await (await fetch(`${GAS_ENDPOINT}?action=stopRemoved&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`, { cache: 'no-store' })).json();
+    if (my !== rmReq) return;
+    if (d.error === 'notRegistered') { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('odNotReg')}</div>`; return; }
+    if (d.error) throw new Error(d.error);
+    rmData = d;
+    if (spView === 'removed') renderStop();
+  } catch (err) {
+    if (my === rmReq && spView === 'removed') { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`; }
+  }
+}
+
 function renderStop(){
+  [...el('spView').children].forEach(b => b.classList.toggle('active', b.dataset.v === spView));
+  if (spView === 'removed') { renderRemoved(); return; }
+  renderCurrentStop();
+}
+
+function renderCurrentStop(){
   if (!spData) return;
   const all = spData.customers || [];
   el('spHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px">
@@ -1570,6 +1635,7 @@ function renderStop(){
 }
 
 async function loadStop(){
+  if (spView === 'removed') return loadRemoved();
   const box = el('stopList');
   if (!profile.userId) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('identityFail')}</div>`; return; }
   const my = ++spReq;
@@ -1579,17 +1645,27 @@ async function loadStop(){
     if (my !== spReq) return;
     if (d.error === 'notRegistered') { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('odNotReg')}</div>`; return; }
     if (d.error) throw new Error(d.error);
-    spData = d; renderStop();
+    spData = d; if (spView === 'current') renderStop();
   } catch (err) {
-    if (my === spReq) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`; }
+    if (my === spReq && spView === 'current') { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`; }
   }
 }
 
 el('stopList').addEventListener('click', (e) => {
   const card = e.target.closest('.od-card');
-  if (!card || !spData || !e.target.closest('.od-head')) return;
-  spOpen[card.dataset.cid] = !spOpen[card.dataset.cid];
+  if (!card || !e.target.closest('.od-head')) return;
+  const open = spView === 'removed' ? rmOpen : spOpen;
+  open[card.dataset.cid] = !open[card.dataset.cid];
   renderStop();
+});
+el('spView').addEventListener('click', (e) => {
+  const b = e.target.closest('button'); if (!b || b.dataset.v === spView) return;
+  spView = b.dataset.v;
+  [...el('spView').children].forEach(x => x.classList.toggle('active', x === b));
+  el('spHero').innerHTML = '';
+  el('stopList').innerHTML = '';
+  renderStop();            // shows cached data instantly if we already have it
+  loadStop();              // and refreshes in the background
 });
 el('spSearch').addEventListener('input', (e) => { spQuery = e.target.value; renderStop(); });
 el('tabStopBtn').addEventListener('click', () => switchTab('stop'));
@@ -1602,7 +1678,7 @@ switchTab = function(tab){
   if (tab === 'stop') { el('viewAsField').style.display = 'none'; loadStop(); }   // stop list is the same for everyone
 };
 const prevApplyLanguage = applyLanguage;
-applyLanguage = function(lang){ prevApplyLanguage(lang); if (spData && spVisible()) renderStop(); };
+applyLanguage = function(lang){ prevApplyLanguage(lang); if ((spData || rmData) && spVisible()) renderStop(); };
 })();
 
 /* ---------- init ---------- */
