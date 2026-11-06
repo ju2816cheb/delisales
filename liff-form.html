@@ -10,9 +10,9 @@
 <style>
   :root{
     /* ---- Red & white theme ---- */
-    --primary:#D6293E;        /* brand red — buttons, actie states, bubble */
-    --primary-dark:#A81F30;   /* pressed / darker text-on-white red */
-    --primary-bg:#FDECEE;     /* pale red tint for selected/verified backgrounds */
+    --primary:#D6293E;
+    --primary-dark:#A81F30;
+    --primary-bg:#FDECEE;
     --ink:#1A1A1A;
     --ink-soft:#65605F;
     --page-bg:#FFFFFF;
@@ -20,7 +20,7 @@
     --border:#ECD9DA;
     --amber:#B8860B;
     --amber-bg:#FFF6E5;
-    --danger:#8C1327;         /* deeper maroon — reserved for errors/void/credit so it reads distinct from brand red */
+    --danger:#8C1327;
     --danger-bg:#F6E3E1;
     --radius:14px;
   }
@@ -50,7 +50,7 @@
   }
   .lang-btn.active{ background:var(--primary); color:#fff; opacity:1; }
 
-  /* --- Signature element: live chat-bubble receipt preview --- */
+  /* --- Live chat-bubble receipt preview --- */
   .bubble-row{ display:flex; margin-top:4px; margin-bottom:4px; }
   .bubble{
     background:var(--primary);
@@ -351,9 +351,10 @@
   </div>
 
   <!-- Finance-only: lets a Finance account switch which salesperson's
-       My receipts / Totals they're looking at. Hidden entirely for
-       everyone else. Filing (New receipt) always stays locked to your
-       own identity — this only affects what's displayed on read tabs. -->
+       My receipts / Totals / Overdue they're looking at. Includes an
+       "All salespeople" option (value "*") that only affects Overdue.
+       Hidden entirely for everyone else. Filing (New receipt) always
+       stays locked to your own identity. -->
   <div class="field" id="viewAsField" style="display:none; margin:0 4px 14px;">
     <label data-i18n="viewingAs">Viewing data for</label>
     <select id="viewAsSelect"></select>
@@ -440,9 +441,7 @@
       </div>
     </div>
 
-    <!-- Live preview — placed last, right above the sticky Save button, so
-         it reflects the fully-filled-in form instead of competing with it
-         for attention at the top of the screen. -->
+    <!-- Live preview — placed last, right above the sticky Save button. -->
     <div class="bubble-row">
       <div class="bubble" id="preview">
         <div class="bt" data-i18n="previewLabel">Will be recorded as</div>
@@ -495,10 +494,10 @@
 </div>
 
 <script>
-/* ====================== CONFIG — replace these two values ====================== */
-const LIFF_ID = "2011154066-sbzdMqVz";                 // from LINE Developers console
-const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbySYY8nPbtar025yHlMoQ0wWRIeL1HpDnGnKt1K8dnmCtkpD7zapkQd2gx08dFrMhnlrg/exec"; // from Apps Script deployment
-/* ================================================================================ */
+/* ====================== CONFIG ====================== */
+const LIFF_ID = "2011154066-sbzdMqVz";
+const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbySYY8nPbtar025yHlMoQ0wWRIeL1HpDnGnKt1K8dnmCtkpD7zapkQd2gx08dFrMhnlrg/exec";
+/* ==================================================== */
 
 /* ---------- i18n: Thai / English ---------- */
 const I18N = {
@@ -539,7 +538,8 @@ const I18N = {
     notLinked: 'Not linked yet — select your name below and it will link to your LINE account automatically once you save your first receipt.',
     identityFail: 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.',
     noMatchingCustomer: 'No matching customer',
-    viewingAs: 'Viewing data for'
+    viewingAs: 'Viewing data for',
+    allSales: '★ All salespeople'
   },
   th: {
     eyebrow: 'ใบเสร็จรับเงิน', title: 'บันทึกใบเสร็จลูกค้า',
@@ -578,7 +578,8 @@ const I18N = {
     notLinked: 'ยังไม่ได้เชื่อมบัญชี — เลือกชื่อของคุณด้านล่าง ระบบจะเชื่อมกับบัญชี LINE ของคุณโดยอัตโนมัติเมื่อคุณบันทึกใบเสร็จแรกสำเร็จ',
     identityFail: 'ไม่สามารถยืนยันตัวตน LINE ของคุณโดยอัตโนมัติได้ — เลือกชื่อของคุณเอง หรือเปิดแบบฟอร์มนี้จากแชท LINE อีกครั้ง',
     noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน',
-    viewingAs: 'กำลังดูข้อมูลของ'
+    viewingAs: 'กำลังดูข้อมูลของ',
+    allSales: '★ Sales ทั้งหมด'
   }
 };
 
@@ -613,14 +614,16 @@ function applyLanguage(lang){
 
   [...el('langToggle').children].forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
 
-  // re-render anything built dynamically in JS so it picks up the new language
+  // keep the "All salespeople" label in the viewer switcher in the right language
+  const allOpt = el('viewAsSelect').querySelector('option[value="*"]');
+  if (allOpt) allOpt.textContent = t('allSales');
+
   renderBillRows();
   updatePreview();
   if (el('tabMine').style.display !== 'none') renderMyReceipts();
   if (el('tabSummary').style.display !== 'none') renderSummary();
 }
 
-// function declarations are hoisted, so el() is safe to use above this line too
 function el(id){ return document.getElementById(id); }
 
 let customers = [];
@@ -628,18 +631,14 @@ let salespersons = [];
 let selectedCustomer = null;
 let selectedSalesperson = null;  // who this LINE account is registered as — always the identity used for filing/void
 let isFinance = false;           // true when the logged-in identity's Sales ID starts with "F-"
-let viewedSalesperson = null;    // whose My receipts / Totals are currently shown; Finance accounts can change this
+let viewedSalesperson = null;    // whose My receipts / Totals / Overdue are currently shown; Finance accounts can change this
 let paymentType = null;
 let receiptImageDataUrl = null;
 let profile = { userId: "", displayName: "" };
 
-// tracks *why* profile.userId might be empty, so the UI (and the on-screen
-// debug panel) can tell "LIFF SDK never loaded" apart from "loaded fine,
-// but this isn't the LINE app" apart from "loaded, logged in, but
-// liff.init() itself threw" — three very different fixes.
 let liffStatus = { sdkPresent: false, initOk: false, isInClient: false, error: null };
 
-let billRows = [];   // [{ rowId, type: 'Bill'|'Credit Note', billNo, amount }]
+let billRows = [];
 let rowCounter = 0;
 let myReceiptsCache = [];
 let summaryGroupBy = 'month';
@@ -722,7 +721,6 @@ el('billRows').addEventListener('input', (e) => {
 el('addBillBtn').addEventListener('click', () => createBillRow());
 
 function getSignedBills(){
-  // amount is always entered as a positive number; sign is applied here based on type
   return billRows
     .filter(r => r.billNo.trim() || r.amount)
     .map(r => {
@@ -852,11 +850,18 @@ el('clearPhoto').addEventListener('click', () => {
 });
 
 /* ---------- Finance "viewing data for" switcher ---------- */
-// Populates the switcher from the same salespersons list already loaded,
-// and keeps it in sync with the currently-viewed salesperson.
+// Populates the switcher from the salespersons list already loaded.
+// Finance accounts also get an "All salespeople" option (value "*") that
+// the Overdue tab uses to show the whole list + grand total.
 function populateViewAsSelect(){
   const sel = el('viewAsSelect');
   sel.innerHTML = '';
+  if (isFinance) {
+    const o = document.createElement('option');
+    o.value = '*';
+    o.textContent = t('allSales');
+    sel.appendChild(o);
+  }
   salespersons.forEach(sp => {
     const opt = document.createElement('option');
     opt.value = sp.id;
@@ -867,6 +872,8 @@ function populateViewAsSelect(){
 }
 
 el('viewAsSelect').addEventListener('change', (e) => {
+  // "*" (All salespeople) only changes the Overdue tab; My receipts / Totals
+  // fall back to your own data in that case.
   const sp = salespersons.find(s => s.id === e.target.value);
   viewedSalesperson = sp || selectedSalesperson;
   if (el('tabMine').style.display !== 'none') loadMyReceipts();
@@ -877,17 +884,12 @@ el('viewAsSelect').addEventListener('change', (e) => {
 async function loadLists(){
   try {
     const qs = profile.userId ? `&lineUserId=${encodeURIComponent(profile.userId)}` : '';
-    // Cache-buster + no-store: GET requests like this can get cached by the
-    // browser (LINE's in-app browser is especially aggressive about it), so
-    // without this, updating the Salespersons/Customers sheet or redeploying
-    // the script can silently keep showing the old list until the cache
-    // expires on its own.
     const cacheBust = `&_=${Date.now()}`;
     const res = await fetch(`${GAS_ENDPOINT}?action=lists${qs}${cacheBust}`, { cache: 'no-store' });
     const data = await res.json();
     salespersons = data.salespersons || [];
     customers = data.customers || [];
-    window.__matchedSalesId = data.matchedSalesId || null; // for the debug panel
+    window.__matchedSalesId = data.matchedSalesId || null;
 
     const sel = el('salesperson');
     salespersons.forEach(sp => {
@@ -897,12 +899,6 @@ async function loadLists(){
       sel.appendChild(opt);
     });
 
-    // If this LINE account is registered in the LineUsers sheet, the server
-    // tells us which Sales ID it maps to. Auto-select and lock the dropdown
-    // so this person can only ever submit/void as themselves — this is the
-    // client-side half of the identity check; the server independently
-    // re-verifies the same mapping on every save and void, so locking the
-    // dropdown here is a UX convenience, not the actual security boundary.
     const hint = el('identityHint');
     isFinance = !!data.isFinance;
 
@@ -918,31 +914,20 @@ async function loadLists(){
         hint.style.display = 'block';
         updatePreview();
       } else {
-        // Server matched a Sales ID that no longer exists in the
-        // Salespersons tab — a real (if rare) data-mismatch case, worth
-        // surfacing rather than failing silently.
         hint.textContent = tFmt('linkedMismatch', { id: data.matchedSalesId });
         hint.className = 'hint error';
         hint.style.display = 'block';
       }
     } else if (profile.userId) {
-      // We have a confirmed LINE identity, but the server found no row for
-      // it in LineUsers — this account genuinely isn't registered yet.
       hint.textContent = t('notLinked');
       hint.className = 'hint unverified';
       hint.style.display = 'block';
     } else if (liffStatus.error) {
-      // We never got a LINE identity at all because liff.init()/getProfile()
-      // failed — this is the "not detected" case. Say so explicitly instead
-      // of quietly leaving the dropdown unlocked with no explanation.
       hint.textContent = t('identityFail');
       hint.className = 'hint error';
       hint.style.display = 'block';
     }
 
-    // The "viewing data for" switcher only ever shows for Finance accounts;
-    // everyone else's My receipts / Totals stay locked to their own data,
-    // same as before.
     populateViewAsSelect();
     el('viewAsField').style.display = (isFinance && el('tabNew').style.display === 'none') ? 'block' : 'none';
   } catch (err) {
@@ -967,7 +952,6 @@ function switchTab(tab){
   el('tabMineBtn').classList.toggle('active', tab === 'mine');
   el('tabSummaryBtn').classList.toggle('active', tab === 'summary');
   el('submitBar').style.display = tab === 'new' ? 'block' : 'none';
-  // Finance switcher only makes sense on the read tabs, not while filing.
   el('viewAsField').style.display = (isFinance && tab !== 'new') ? 'block' : 'none';
   if (tab === 'mine') loadMyReceipts();
   if (tab === 'summary') loadSummary();
@@ -996,15 +980,11 @@ async function loadMyReceipts(){
 
 function renderMyReceipts(){
   const list = el('myReceiptsList');
-  if (!viewedSalesperson) return; // avoid clobbering the "select first" message mid-language-switch
+  if (!viewedSalesperson) return;
   if (!myReceiptsCache.length) {
     list.innerHTML = `<div class="empty-state">${t('mineEmpty')}</div>`;
     return;
   }
-  // Deleting (voiding) only ever works for your own receipts — the server
-  // enforces this too, but hiding the button when a Finance user is
-  // viewing someone else's data avoids showing an action that would just
-  // fail with a confusing error.
   const canDelete = !!(viewedSalesperson && selectedSalesperson && viewedSalesperson.id === selectedSalesperson.id);
   list.innerHTML = myReceiptsCache.map(r => {
     const voided = r.status === 'Voided';
@@ -1032,11 +1012,6 @@ function renderMyReceipts(){
   }).join('');
 }
 
-// A receipt is never actually removed from the Sheet — "Delete" here calls
-// the same server-side void as before (see voidReceipt() in Code.gs), which
-// flags the row Voided rather than erasing it, keeping the audit trail
-// intact. The button is just relabelled "Delete" because that's the mental
-// model salespeople actually use ("I made a mistake, get rid of it").
 el('myReceiptsList').addEventListener('click', async (e) => {
   const card = e.target.closest('.mr-card');
   const action = e.target.dataset.action;
@@ -1052,8 +1027,6 @@ el('myReceiptsList').addEventListener('click', async (e) => {
   e.target.textContent = t('deleting');
 
   try {
-    // Void always goes through under your own identity, never viewedSalesperson —
-    // the server only allows you to void your own receipts.
     const res = await fetch(GAS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1215,7 +1188,6 @@ el('receiptForm').addEventListener('submit', async (e) => {
   const chequeType = el('chequeType').value.trim();
   const chequeDate = el('chequeDate').value;
 
-  // every bill row must be fully filled in (billNo + amount > 0)
   const rowsIncomplete = billRows.some(r => !r.billNo.trim() || !(parseFloat(r.amount) > 0));
 
   if (!selectedSalesperson || !selectedCustomer || billRows.length === 0 || rowsIncomplete ||
@@ -1238,7 +1210,7 @@ el('receiptForm').addEventListener('submit', async (e) => {
     salesId: selectedSalesperson.id,
     customerId: selectedCustomer.id,
     customerName: selectedCustomer.name,
-    bills: bills,                       // [{ type: 'Bill'|'Credit Note', billNo, amount }] — amount negative for credit notes
+    bills: bills,
     totalAmount: totalAmount,
     paymentType: paymentType,
     paymentDate: paymentDate,
@@ -1250,7 +1222,6 @@ el('receiptForm').addEventListener('submit', async (e) => {
   };
 
   try {
-    // text/plain avoids a CORS preflight against Apps Script
     const res = await fetch(GAS_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -1279,7 +1250,6 @@ el('receiptForm').addEventListener('submit', async (e) => {
 
 /* ---------- OVERDUE TAB ---------- */
 (function(){
-/* ---------- text ---------- */
 Object.assign(I18N.en, {
   tabOverdue:'Overdue', odNeeds:'Needs reply', odAll:'All', odProblems:'Problems', odSearch:'Search customer name or code',
   odTotal:'Total overdue', odOf:'{a} of {b} customers replied', odOldest:'oldest {n} days', odInv1:'1 invoice', odInvN:'{n} invoices',
@@ -1292,7 +1262,7 @@ Object.assign(I18N.en, {
   odErrOther:'Please describe the problem.', odErrOld:'Add a comment for every invoice over {n} days.',
   odAllDone:'All customers replied 🎉', odNone:'No overdue customers.', odNoMatch:'No matching customer.',
   odNotReg:'Your LINE account isn\'t linked to a salesperson yet — save one receipt first, or ask your admin.',
-  odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.'
+  odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.', odAllView:'all salespeople'
 });
 Object.assign(I18N.th, {
   tabOverdue:'ค้างชำระ', odNeeds:'ยังไม่ตอบ', odAll:'ทั้งหมด', odProblems:'มีปัญหา', odSearch:'ค้นหาชื่อหรือรหัสลูกค้า',
@@ -1306,7 +1276,7 @@ Object.assign(I18N.th, {
   odErrOther:'กรุณาอธิบายปัญหา', odErrOld:'กรุณาใส่ความเห็นให้ทุกบิลที่เกิน {n} วัน',
   odAllDone:'ตอบครบทุกรายแล้ว 🎉', odNone:'ไม่มีลูกค้าค้างชำระ', odNoMatch:'ไม่พบลูกค้าที่ตรงกัน',
   odNotReg:'บัญชี LINE ของคุณยังไม่ได้เชื่อมกับรหัสเซลส์ — บันทึกใบเสร็จหนึ่งครั้งก่อน หรือแจ้งแอดมิน',
-  odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ'
+  odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ', odAllView:'Sales ทั้งหมด'
 });
 
 /* ---------- state + helpers ---------- */
@@ -1331,13 +1301,13 @@ const oldInv = c => c.invoices.filter(i => i.old);
 const dayClass = (n, oldDays) => n > oldDays ? 'd3' : (n >= 30 ? 'd2' : 'd1');
 
 function getDraft(c){
-  if (!odDraft[c.customerId]) {
-    const keep = c.answered && c.last;                 // editing an existing valid reply → pre-fill it
+  if (!odDraft[c.uid]) {
+    const keep = c.answered && c.last;
     const d = { date: keep ? c.last.payDate : '', problem: keep ? c.last.problem : '', note: keep ? c.last.note : '', old: {} };
     if (keep) c.invoices.forEach(i => { if (i.old && i.oldNote) d.old[i.invoiceNo] = i.oldNote; });
-    odDraft[c.customerId] = d;
+    odDraft[c.uid] = d;
   }
-  return odDraft[c.customerId];
+  return odDraft[c.uid];
 }
 
 /* ---------- rendering ---------- */
@@ -1376,10 +1346,11 @@ function formHtml(c){
 }
 
 function cardHtml(c){
-  const open = !!odOpen[c.customerId];
+  const open = !!odOpen[c.uid];
   const hasProb = c.answered && c.last && c.last.problem;
   const cls = hasProb ? 'prob' : (c.answered ? 'done' : 'need');
   const n = posInv(c).length;
+  const allView = odData.viewing === '*';
   let status = `<span class="od-chip need">${t('odNeedsReply')}</span>`;
   if (c.answered && c.last) {
     status = `<span class="od-chip ok">${tFmt('odPays', { d: fmtIso(c.last.payDate) })}</span>` +
@@ -1393,18 +1364,18 @@ function cardHtml(c){
       : (odData.readOnly ? `<div class="od-last">${t('odNoReply')}</div>` : '');
     body = `<div class="od-body">${c.invoices.map(lineHtml).join('')}${lastBox}${odData.readOnly ? '' : formHtml(c)}</div>`;
   }
-  return `<div class="od-card ${cls}" data-cid="${esc(c.customerId)}">
+  return `<div class="od-card ${cls}" data-cid="${esc(c.uid)}">
     <div class="od-head"><div><div class="od-name">${esc(c.customerName)}</div>
-      <div class="od-sub">${esc(c.customerId)} · ${n === 1 ? t('odInv1') : tFmt('odInvN', { n: n })}</div>${status}</div>
+      <div class="od-sub">${esc(c.customerId)} · ${n === 1 ? t('odInv1') : tFmt('odInvN', { n: n })}${allView ? ' · 👤 ' + esc(c.salesName) : ''}</div>${status}</div>
       <div class="od-right"><div class="od-amt ${c.total < 0 ? 'neg' : ''}">${formatSigned(c.total)}</div>
       <span class="od-chip ${dayClass(c.maxDays, odData.oldDays)}">${tFmt('odOldest', { n: c.maxDays })}</span></div></div>${body}</div>`;
 }
 
-function findCard(cid){
-  return [...el('overdueList').children].find(n => n.dataset && n.dataset.cid === cid) || null;
+function findCard(uid){
+  return [...el('overdueList').children].find(n => n.dataset && n.dataset.cid === uid) || null;
 }
-function refreshCard(cid){
-  const c = odData.customers.find(x => x.customerId === cid), node = findCard(cid);
+function refreshCard(uid){
+  const c = odData.customers.find(x => x.uid === uid), node = findCard(uid);
   if (c && node) node.outerHTML = cardHtml(c);
 }
 
@@ -1413,8 +1384,9 @@ function renderOverdue(){
   const all = odData.customers;
   const answered = all.filter(c => c.answered).length;
   const total = all.reduce((s, c) => s + c.total, 0);
+  const suffix = odData.viewing === '*' ? ' · ' + t('odAllView') : (odData.readOnly ? ' · ' + t('odReadOnly') : '');
   el('odHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px">
-      <div class="sg-label">${t('odTotal')}${odData.readOnly ? ' · ' + t('odReadOnly') : ''}</div>
+      <div class="sg-label">${t('odTotal')}${suffix}${odData.viewing === '*' ? ' · ' + t('odReadOnly') : ''}</div>
       <div class="sg-total" style="margin:2px 0 4px">${formatSigned(total)}</div>
       <div class="sg-label">${tFmt('odOf', { a: answered, b: all.length })}</div>
       <div style="height:6px;background:rgba(255,255,255,.3);border-radius:3px;margin-top:10px;overflow:hidden"><div style="width:${all.length ? Math.round(answered / all.length * 100) : 0}%;height:100%;background:#fff"></div></div></div>`;
@@ -1422,7 +1394,7 @@ function renderOverdue(){
 
   const q = odQuery.trim().toLowerCase();
   let cs = all;
-  if (q) cs = cs.filter(c => c.customerName.toLowerCase().includes(q) || c.customerId.toLowerCase().includes(q));
+  if (q) cs = cs.filter(c => c.customerName.toLowerCase().includes(q) || c.customerId.toLowerCase().includes(q) || (c.salesName || '').toLowerCase().includes(q));
   if (odFilter === 'needs') cs = cs.filter(c => !c.answered);
   else if (odFilter === 'prob') cs = cs.filter(c => c.answered && c.last && c.last.problem);
 
@@ -1446,14 +1418,16 @@ async function loadOverdue(quiet){
   const my = ++odReq;
   if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`; }
   try {
-    const url = `${GAS_ENDPOINT}?action=overdue&lineUserId=${encodeURIComponent(profile.userId)}&viewSalesId=${encodeURIComponent(viewedSalesperson.id)}&_=${Date.now()}`;
+    // Finance can pick "All salespeople" (value "*") in the viewer switcher
+    const vid = (isFinance && el('viewAsSelect').value === '*') ? '*' : viewedSalesperson.id;
+    const url = `${GAS_ENDPOINT}?action=overdue&lineUserId=${encodeURIComponent(profile.userId)}&viewSalesId=${encodeURIComponent(vid)}&_=${Date.now()}`;
     const d = await (await fetch(url, { cache: 'no-store' })).json();
-    if (my !== odReq) return;                                   // a newer request is in flight — ignore this one
+    if (my !== odReq) return;
     if (d.error === 'notRegistered') { if (!quiet || odVisible()) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('odNotReg')}</div>`; } return; }
     if (d.error) throw new Error(d.error);
     odData = d;
-    const ids = {}; d.customers.forEach(c => { ids[c.customerId] = 1; });
-    Object.keys(odDraft).forEach(k => { if (!ids[k]) delete odDraft[k]; });   // drop drafts for customers no longer listed
+    const ids = {}; d.customers.forEach(c => { ids[c.uid] = 1; });
+    Object.keys(odDraft).forEach(k => { if (!ids[k]) delete odDraft[k]; });
     if (d.viewing === d.me) el('odBadge').textContent = d.customers.filter(c => !c.answered).length || '';
     if (odVisible()) renderOverdue();
   } catch (err) {
@@ -1464,7 +1438,7 @@ async function loadOverdue(quiet){
 /* ---------- interaction ---------- */
 function storeInput(e){
   const card = e.target.closest('.od-card'); if (!card) return;
-  const c = odData && odData.customers.find(x => x.customerId === card.dataset.cid); if (!c) return;
+  const c = odData && odData.customers.find(x => x.uid === card.dataset.cid); if (!c) return;
   const d = getDraft(c);
   if (e.target.classList.contains('od-date')) { d.date = e.target.value; [...card.querySelectorAll('[data-q]')].forEach(b => b.classList.toggle('on', d.date === quickDate(b.dataset.q))); }
   else if (e.target.classList.contains('od-note')) d.note = e.target.value;
@@ -1475,23 +1449,24 @@ el('overdueList').addEventListener('change', storeInput);
 
 el('overdueList').addEventListener('click', async (e) => {
   const card = e.target.closest('.od-card'); if (!card || !odData) return;
-  const cid = card.dataset.cid;
-  const c = odData.customers.find(x => x.customerId === cid); if (!c) return;
+  const uid = card.dataset.cid;
+  const c = odData.customers.find(x => x.uid === uid); if (!c) return;
 
-  if (e.target.closest('.od-head')) { odOpen[cid] = !odOpen[cid]; refreshCard(cid); return; }
+  if (e.target.closest('.od-head')) { odOpen[uid] = !odOpen[uid]; refreshCard(uid); return; }
+  if (odData.readOnly) return;       // no forms in view-only mode (other salesperson / All)
   const d = getDraft(c);
 
   const q = e.target.closest('[data-q]');
-  if (q) { d.date = quickDate(q.dataset.q); refreshCard(cid); return; }
+  if (q) { d.date = quickDate(q.dataset.q); refreshCard(uid); return; }
 
   const p = e.target.closest('[data-p]');
-  if (p) { d.problem = p.dataset.p; refreshCard(cid); return; }
+  if (p) { d.problem = p.dataset.p; refreshCard(uid); return; }
 
   if (e.target.dataset.act === 'copy') {
     const olds = oldInv(c);
     const src = olds.map(i => (d.old[i.invoiceNo] || '').trim()).find(Boolean);
     if (src) olds.forEach(i => { if (!(d.old[i.invoiceNo] || '').trim()) d.old[i.invoiceNo] = src; });
-    refreshCard(cid); return;
+    refreshCard(uid); return;
   }
 
   if (e.target.classList.contains('od-save')) {
@@ -1510,11 +1485,11 @@ el('overdueList').addEventListener('click', async (e) => {
     try {
       const res = await (await fetch(GAS_ENDPOINT, {
         method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'followup', lineUserId: profile.userId, customerId: cid, payDate: d.date,
+        body: JSON.stringify({ action: 'followup', lineUserId: profile.userId, customerId: c.customerId, payDate: d.date,
           problem: d.problem, note: d.problem ? (d.note || '').trim() : '', oldNotes: oldNotes })
       })).json();
       if (!res || !res.success) { fail((res && res.error) || t('saveErr')); btn.disabled = false; btn.textContent = t('odSave'); }
-      else { delete odDraft[cid]; odOpen[cid] = false; showToast(t('odSaved')); await loadOverdue(true); }
+      else { delete odDraft[uid]; odOpen[uid] = false; showToast(t('odSaved')); await loadOverdue(true); }
     } catch (x) { fail(t('saveConnErr')); btn.disabled = false; btn.textContent = t('odSave'); }
     finally { odSaving = false; }
   }
@@ -1634,10 +1609,6 @@ applyLanguage = function(lang){ prevApplyLanguage(lang); if (spData && spVisible
 (async function init(){
   liffStatus.sdkPresent = !!window.liff;
 
-  // Every LIFF failure mode (wrong LIFF_ID, the SDK script being
-  // slow/blocked, liff.init() erroring, liff.getProfile() rejecting) is
-  // logged to the console (and to the on-screen panel via ?debug=1) and
-  // surfaced to the person in identityHint rather than failing invisibly.
   if (window.liff) {
     try {
       await liff.init({ liffId: LIFF_ID });
@@ -1645,7 +1616,7 @@ applyLanguage = function(lang){ prevApplyLanguage(lang); if (spData && spVisible
 
       if (!liff.isLoggedIn()) {
         liff.login();
-        return; // page will reload after LINE login redirects back
+        return;
       }
 
       const p = await liff.getProfile();
