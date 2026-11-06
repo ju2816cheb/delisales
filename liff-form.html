@@ -1266,7 +1266,8 @@ Object.assign(I18N.en, {
   odErrOther:'Please describe the problem.', odErrOld:'Add a comment for every invoice over {n} days.',
   odAllDone:'All customers replied 🎉', odNone:'No overdue customers.', odNoMatch:'No matching customer.',
   odNotReg:'Your LINE account isn\'t linked to a salesperson yet — save one receipt first, or ask your admin.',
-  odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.', odAllView:'all salespeople'
+  odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.', odAllView:'all salespeople',
+  odOfMust:'{a} of {b} customers over {n} days replied', odNoMust:'No customer needs a reply', odOptional:'Reply optional'
 });
 Object.assign(I18N.th, {
   tabOverdue:'ค้างชำระ', odNeeds:'ยังไม่ตอบ', odAll:'ทั้งหมด', odProblems:'มีปัญหา', odSearch:'ค้นหาชื่อหรือรหัสลูกค้า',
@@ -1280,7 +1281,8 @@ Object.assign(I18N.th, {
   odErrOther:'กรุณาอธิบายปัญหา', odErrOld:'กรุณาใส่ความเห็นให้ทุกบิลที่เกิน {n} วัน',
   odAllDone:'ตอบครบทุกรายแล้ว 🎉', odNone:'ไม่มีลูกค้าค้างชำระ', odNoMatch:'ไม่พบลูกค้าที่ตรงกัน',
   odNotReg:'บัญชี LINE ของคุณยังไม่ได้เชื่อมกับรหัสเซลส์ — บันทึกใบเสร็จหนึ่งครั้งก่อน หรือแจ้งแอดมิน',
-  odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ', odAllView:'Sales ทั้งหมด'
+  odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ', odAllView:'Sales ทั้งหมด',
+  odOfMust:'ตอบแล้ว {a} จาก {b} ราย (เกิน {n} วัน)', odNoMust:'ไม่มีรายที่ต้องตอบ', odOptional:'ตอบหรือไม่ก็ได้'
 });
 
 /* ---------- state + helpers ---------- */
@@ -1352,10 +1354,10 @@ function formHtml(c){
 function cardHtml(c){
   const open = !!odOpen[c.uid];
   const hasProb = c.answered && c.last && c.last.problem;
-  const cls = hasProb ? 'prob' : (c.answered ? 'done' : 'need');
+  const cls = hasProb ? 'prob' : (c.answered ? 'done' : (c.needsReply ? 'need' : ''));
   const n = posInv(c).length;
   const allView = odData.viewing === '*';
-  let status = `<span class="od-chip need">${t('odNeedsReply')}</span>`;
+  let status = c.needsReply ? `<span class="od-chip need">${t('odNeedsReply')}</span>` : `<span class="od-chip" style="background:#f1eeee;color:#65605F">${t('odOptional')}</span>`;
   if (c.answered && c.last) {
     status = `<span class="od-chip ok">${tFmt('odPays', { d: fmtIso(c.last.payDate) })}</span>` +
       (hasProb ? `<span class="od-chip prob">${tFmt('odProbLabel', { p: esc(probName(c.last.problem)) })}</span>` : '') +
@@ -1386,20 +1388,21 @@ function refreshCard(uid){
 function renderOverdue(){
   if (!odData) return;
   const all = odData.customers;
-  const answered = all.filter(c => c.answered).length;
+  const must = all.filter(c => c.mustReply);
+  const answered = must.filter(c => c.answered).length;
   const total = all.reduce((s, c) => s + c.total, 0);
   const suffix = odData.viewing === '*' ? ' · ' + t('odAllView') : (odData.readOnly ? ' · ' + t('odReadOnly') : '');
   el('odHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px">
       <div class="sg-label">${t('odTotal')}${suffix}${odData.viewing === '*' ? ' · ' + t('odReadOnly') : ''}</div>
       <div class="sg-total" style="margin:2px 0 4px">${formatSigned(total)}</div>
-      <div class="sg-label">${tFmt('odOf', { a: answered, b: all.length })}</div>
-      <div style="height:6px;background:rgba(255,255,255,.3);border-radius:3px;margin-top:10px;overflow:hidden"><div style="width:${all.length ? Math.round(answered / all.length * 100) : 0}%;height:100%;background:#fff"></div></div></div>`;
+      <div class="sg-label">${must.length ? tFmt('odOfMust', { a: answered, b: must.length, n: odData.oldDays }) : t('odNoMust')}</div>
+      <div style="height:6px;background:rgba(255,255,255,.3);border-radius:3px;margin-top:10px;overflow:hidden"><div style="width:${must.length ? Math.round(answered / must.length * 100) : 100}%;height:100%;background:#fff"></div></div></div>`;
   [...el('odFilter').children].forEach(b => b.classList.toggle('active', b.dataset.f === odFilter));
 
   const q = odQuery.trim().toLowerCase();
   let cs = all;
   if (q) cs = cs.filter(c => c.customerName.toLowerCase().includes(q) || c.customerId.toLowerCase().includes(q) || (c.salesName || '').toLowerCase().includes(q));
-  if (odFilter === 'needs') cs = cs.filter(c => !c.answered);
+  if (odFilter === 'needs') cs = cs.filter(c => c.needsReply);
   else if (odFilter === 'prob') cs = cs.filter(c => c.answered && c.last && c.last.problem);
 
   if (!cs.length) {
@@ -1432,7 +1435,7 @@ async function loadOverdue(quiet){
     odData = d;
     const ids = {}; d.customers.forEach(c => { ids[c.uid] = 1; });
     Object.keys(odDraft).forEach(k => { if (!ids[k]) delete odDraft[k]; });
-    if (d.viewing === d.me) el('odBadge').textContent = d.customers.filter(c => !c.answered).length || '';
+    if (d.viewing === d.me) el('odBadge').textContent = d.customers.filter(c => c.needsReply).length || '';
     if (odVisible()) renderOverdue();
   } catch (err) {
     if (my === odReq && (!quiet || odVisible())) box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`;
