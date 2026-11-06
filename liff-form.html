@@ -471,6 +471,13 @@
 
   <div id="tabOverdue" style="display:none;">
     <div id="odHero"></div>
+
+    <!-- Finance-only: export the Overdue Report as an Excel file (button is hidden for everyone else) -->
+    <div id="odExport" style="display:none; margin:0 0 12px;">
+      <button type="button" class="od-save" id="odXlsxBtn" style="margin-top:0;" data-i18n="odExpXlsx">📥 Export Excel</button>
+      <div class="hint" id="odExpMsg"></div>
+    </div>
+
     <input type="text" id="odSearch" class="od-search" data-i18n-placeholder="odSearch" placeholder="Search customer name or code" autocomplete="off" />
     <div class="summary-seg" id="odFilter">
       <button type="button" data-f="needs" class="active" data-i18n="odNeeds">Needs reply</button>
@@ -1530,7 +1537,8 @@ Object.assign(I18N.en, {
   spNote:'A customer is removed automatically once receipts clear all their overdue invoices.',
   spCurrent:'On stop supply', spRemoved:'Removed', spRemovedCount:'customers removed (cleared)',
   spRemovedNone:'No customers removed yet.', spRemovedOn:'Removed {d}', spCleared:'Invoices cleared',
-  spRemovedNote:'Customers taken off the list automatically after receipts cleared all their overdue invoices. Newest first.'
+  spRemovedNote:'Customers taken off the list automatically after receipts cleared all their overdue invoices. Newest first.',
+  spCheque:'Cheque — not removed'
 });
 Object.assign(I18N.th, {
   tabStop:'หยุดส่งสินค้า', spSearch:'ค้นหาชื่อหรือรหัสลูกค้า', spCount:'ราย อยู่ในรายการหยุดส่งสินค้า',
@@ -1539,7 +1547,8 @@ Object.assign(I18N.th, {
   spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ',
   spCurrent:'หยุดส่งอยู่', spRemoved:'นำออกแล้ว', spRemovedCount:'ราย ถูกนำออกจากรายการแล้ว',
   spRemovedNone:'ยังไม่มีลูกค้าที่ถูกนำออก', spRemovedOn:'นำออก {d}', spCleared:'บิลที่ชำระแล้ว',
-  spRemovedNote:'ลูกค้าที่ถูกนำออกจากรายการอัตโนมัติหลังใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ เรียงจากล่าสุด'
+  spRemovedNote:'ลูกค้าที่ถูกนำออกจากรายการอัตโนมัติหลังใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ เรียงจากล่าสุด',
+  spCheque:'เช็ค — ยังไม่นำออก'
 });
 
 let spData = null, spQuery = '', spOpen = {}, spReq = 0;
@@ -1550,15 +1559,18 @@ const spVisible = () => el('tabStop').style.display !== 'none';
 function spCardHtml(c){
   const h = spData.headers || [], ex = c.cells.slice(2), eh = h.slice(2);
   const n = c.invoices.length, paid = c.invoices.filter(i => i.paid).length;
+  const hasCheque = c.invoices.some(i => i.cheque);
   const status = n
-    ? `<span class="od-chip ${paid === n ? 'ok' : 'need'}">${tFmt('spPaidOf', { a: paid, b: n })}</span>`
+    ? `<span class="od-chip ${paid === n ? (hasCheque ? 'prob' : 'ok') : 'need'}">${tFmt('spPaidOf', { a: paid, b: n })}</span>` +
+      (hasCheque ? `<span class="od-chip prob">🧾 ${t('spCheque')}</span>` : '')
     : `<span class="od-chip d1">${t('spNoInv')}</span>`;
   let body = '';
   if (spOpen[c.customerId]) {
     body = '<div class="od-body">' +
       ex.map((v, i) => `<div class="od-line"><span>${esc(eh[i])}</span><b>${esc(v)}</b></div>`).join('') +
       c.invoices.map(i => {
-        const chip = i.paid ? `<span class="od-chip ok">${t('spPaid')}${i.paidAt ? ' · ' + esc(i.paidAt) : ''}</span>`
+        const chip = i.cheque ? `<span class="od-chip prob">${t('spCheque')}${i.paidAt ? ' · ' + esc(i.paidAt) : ''}</span>`
+          : i.paid ? `<span class="od-chip ok">${t('spPaid')}${i.paidAt ? ' · ' + esc(i.paidAt) : ''}</span>`
           : i.partial ? `<span class="od-chip prob">${t('spPartial')}</span>`
           : `<span class="od-chip d3">${i.days}${t('odDays')}</span>`;
         return `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b>${chip}</span><span>${formatSigned(i.amount)}</span></div>`;
@@ -1682,6 +1694,55 @@ switchTab = function(tab){
 };
 const prevApplyLanguage = applyLanguage;
 applyLanguage = function(lang){ prevApplyLanguage(lang); if ((spData || rmData) && spVisible()) renderStop(); };
+})();
+
+(function(){
+/* ---------- FINANCE ONLY: export the overdue report as Excel ---------- */
+Object.assign(I18N.en, {
+  odExpXlsx:'📥 Export Excel', odExpBusy:'Preparing file…',
+  odExpReady:'Download ready — tap here if it did not open', odExpErr:'Could not export'
+});
+Object.assign(I18N.th, {
+  odExpXlsx:'📥 ส่งออก Excel', odExpBusy:'กำลังเตรียมไฟล์…',
+  odExpReady:'ไฟล์พร้อมแล้ว — แตะที่นี่หากไม่เปิดอัตโนมัติ', odExpErr:'ไม่สามารถส่งออกได้'
+});
+
+async function runExport(){
+  const msg = el('odExpMsg'), btn = el('odXlsxBtn');
+  btn.disabled = true;
+  msg.className = 'hint';
+  msg.textContent = t('odExpBusy');
+  try {
+    const url = `${GAS_ENDPOINT}?action=exportOverdue&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`;
+    const d = await (await fetch(url, { cache: 'no-store' })).json();
+    if (!d || !d.success) throw new Error((d && d.error) || t('odExpErr'));
+
+    // visible fallback link (in case the automatic open is blocked)
+    msg.textContent = '';
+    const a = document.createElement('a');
+    a.href = d.downloadUrl; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = t('odExpReady') + ' — ' + d.name;
+    a.style.cssText = 'color:var(--primary-dark);font-weight:600';
+    msg.appendChild(a);
+
+    // auto-open: inside LINE use the external browser so the file really downloads
+    if (window.liff && liff.isInClient()) liff.openWindow({ url: d.downloadUrl, external: true });
+    else window.open(d.downloadUrl, '_blank');
+  } catch (err) {
+    msg.className = 'hint error';
+    msg.textContent = err.message || t('odExpErr');
+  } finally {
+    btn.disabled = false;
+  }
+}
+el('odXlsxBtn').addEventListener('click', runExport);
+
+// show the button for Finance accounts only (the server re-checks, so this is cosmetic)
+const lastLoadLists = loadLists;
+loadLists = async function(){
+  await lastLoadLists();
+  el('odExport').style.display = isFinance ? 'block' : 'none';
+};
 })();
 
 /* ---------- init ---------- */
