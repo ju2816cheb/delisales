@@ -277,6 +277,51 @@
     border-radius:10px; font-size:11.5px; color:var(--ink-soft); white-space:pre-wrap; word-break:break-all;
   }
   .debug-panel.show{ display:block; }
+.od-search{margin-bottom:10px}
+.od-hero{display:block}
+.od-card{border:1px solid var(--border);border-left-width:4px;border-radius:var(--radius);margin-bottom:10px;background:#fff;overflow:hidden}
+.od-card.need{border-left-color:var(--primary)}
+.od-card.done{border-left-color:#1F7A4D}
+.od-card.prob{border-left-color:var(--amber)}
+.od-head{padding:14px;cursor:pointer;display:flex;justify-content:space-between;gap:10px}
+.od-name{font-size:14.5px;font-weight:600;word-break:break-word}
+.od-sub{font-size:12px;color:var(--ink-soft);margin-top:2px}
+.od-right{text-align:right;flex-shrink:0}
+.od-amt{font:700 16.5px 'Kanit',sans-serif;white-space:nowrap}
+.od-amt.neg{color:var(--danger)}
+.od-chip{display:inline-block;margin-top:6px;margin-right:4px;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:20px}
+.od-chip.need{background:var(--primary-bg);color:var(--primary-dark)}
+.od-chip.ok{background:#E6F4EC;color:#1F7A4D}
+.od-chip.prob{background:var(--amber-bg);color:var(--amber)}
+.od-chip.d1{background:var(--amber-bg);color:var(--amber)}
+.od-chip.d2{background:var(--primary-bg);color:var(--primary-dark)}
+.od-chip.d3{background:var(--danger-bg);color:var(--danger)}
+.od-body{padding:0 14px 14px}
+.od-line{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:7px 0;border-top:1px dashed var(--border);color:var(--ink-soft)}
+.od-line b{color:var(--ink);font-weight:600}
+.od-line .od-chip{margin:0 0 0 4px;padding:1px 7px}
+.od-line.cn span:last-child{color:var(--danger)}
+.od-lbl{display:block;font:600 13px 'Kanit',sans-serif;margin:16px 0 7px}
+.od-pills{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.od-pill{padding:8px 12px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font:600 12.5px inherit;font-family:inherit;color:var(--ink-soft);cursor:pointer}
+.od-pill.on{border-color:var(--primary);background:var(--primary-bg);color:var(--primary-dark)}
+.od-form textarea{width:100%;font-size:16px;font-family:inherit;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;min-height:64px;resize:vertical;color:var(--ink)}
+.od-form textarea:focus{outline:none;border-color:var(--primary)}
+.od-old{margin-top:16px;padding:12px;background:var(--amber-bg);border:1px solid #F0DBA3;border-radius:10px}
+.od-old .od-oh{font:600 13px 'Kanit',sans-serif;color:#7A5800;margin-bottom:8px}
+.od-oldrow{margin-bottom:10px}
+.od-oldrow .od-ol{font-size:12.5px;color:#7A5800;margin-bottom:4px}
+.od-copy{font-size:12.5px;font-weight:600;color:var(--primary-dark);cursor:pointer}
+.od-save{width:100%;margin-top:16px;padding:14px;border:none;border-radius:12px;background:var(--primary);color:#fff;font:600 15.5px 'Kanit',sans-serif;cursor:pointer}
+.od-save:disabled{background:#D8B9BC}
+.od-err{color:var(--danger);font-size:12.5px;font-weight:600;margin-top:10px;display:none}
+.od-err.show{display:block}
+.od-last{font-size:12.5px;background:var(--amber-bg);border-radius:8px;padding:8px 10px;margin-top:10px;color:#7A5800}
+.od-divider{font-size:12px;font-weight:600;color:var(--ink-soft);margin:16px 2px 8px}
+#odBadge{background:var(--primary);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px}
+#odBadge:empty{display:none}
+.tabs{flex-wrap:wrap}
+.tab-btn{flex:1 1 28%}
 </style>
 </head>
 <body>
@@ -301,6 +346,8 @@
     <button type="button" class="tab-btn active" id="tabNewBtn" data-i18n="tabNew">New receipt</button>
     <button type="button" class="tab-btn" id="tabMineBtn" data-i18n="tabMine">My receipts</button>
     <button type="button" class="tab-btn" id="tabSummaryBtn" data-i18n="tabSummary">Totals</button>
+    <button type="button" class="tab-btn" id="tabOverdueBtn"><span data-i18n="tabOverdue">Overdue</span><span id="odBadge"></span></button>
+    <button type="button" class="tab-btn" id="tabStopBtn" data-i18n="tabStop">Stop supply</button>
   </div>
 
   <!-- Finance-only: lets a Finance account switch which salesperson's
@@ -421,6 +468,23 @@
     </div>
     <div id="summaryGrand"></div>
     <div id="summaryList"></div>
+  </div>
+
+  <div id="tabOverdue" style="display:none;">
+    <div id="odHero"></div>
+    <input type="text" id="odSearch" class="od-search" data-i18n-placeholder="odSearch" placeholder="Search customer name or code" autocomplete="off" />
+    <div class="summary-seg" id="odFilter">
+      <button type="button" data-f="needs" class="active" data-i18n="odNeeds">Needs reply</button>
+      <button type="button" data-f="all" data-i18n="odAll">All</button>
+      <button type="button" data-f="prob" data-i18n="odProblems">Problems</button>
+    </div>
+    <div id="overdueList"></div>
+  </div>
+
+  <div id="tabStop" style="display:none;">
+    <div id="spHero"></div>
+    <input type="text" id="spSearch" class="od-search" data-i18n-placeholder="spSearch" placeholder="Search customer name or code" autocomplete="off" />
+    <div id="stopList"></div>
   </div>
 </div>
 
@@ -1212,6 +1276,359 @@ el('receiptForm').addEventListener('submit', async (e) => {
     btn.textContent = t('saveReceipt');
   }
 });
+
+/* ---------- OVERDUE TAB ---------- */
+(function(){
+/* ---------- text ---------- */
+Object.assign(I18N.en, {
+  tabOverdue:'Overdue', odNeeds:'Needs reply', odAll:'All', odProblems:'Problems', odSearch:'Search customer name or code',
+  odTotal:'Total overdue', odOf:'{a} of {b} customers replied', odOldest:'oldest {n} days', odInv1:'1 invoice', odInvN:'{n} invoices',
+  odNeedsReply:'Needs reply', odPays:'Pays {d}', odProbLabel:'Problem: {p}', odEdit:'Edit', odReplied:'Replied',
+  odPay:'Customer will pay on', odQ3:'+3 days', odQ7:'+7 days', odQ14:'+14 days', odEom:'End of month',
+  odProbQ:'Any problem with this customer?', odNoProb:'No problem', odp0:'No funds', odp1:'Disputed bill', odp2:'Cannot contact', odp3:'Other',
+  odNote:'Details', odNoteOpt:'(optional)', odOldTitle:'Over {n} days — why is this invoice still unpaid?', odOldCopy:'Use the same comment for all',
+  odSave:'Save reply', odSaving:'Saving…', odSaved:'Reply saved ✓', odDays:'d', odCn:'Credit note', odDue:'due',
+  odErrDate:'Pick the date the customer will pay.', odErrPast:'The pay date cannot be in the past.',
+  odErrOther:'Please describe the problem.', odErrOld:'Add a comment for every invoice over {n} days.',
+  odAllDone:'All customers replied 🎉', odNone:'No overdue customers.', odNoMatch:'No matching customer.',
+  odNotReg:'Your LINE account isn\'t linked to a salesperson yet — save one receipt first, or ask your admin.',
+  odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.'
+});
+Object.assign(I18N.th, {
+  tabOverdue:'ค้างชำระ', odNeeds:'ยังไม่ตอบ', odAll:'ทั้งหมด', odProblems:'มีปัญหา', odSearch:'ค้นหาชื่อหรือรหัสลูกค้า',
+  odTotal:'ยอดค้างชำระรวม', odOf:'ตอบแล้ว {a} จาก {b} ราย', odOldest:'เก่าสุด {n} วัน', odInv1:'1 บิล', odInvN:'{n} บิล',
+  odNeedsReply:'ยังไม่ตอบ', odPays:'จ่าย {d}', odProbLabel:'ปัญหา: {p}', odEdit:'แก้ไข', odReplied:'ตอบแล้ว',
+  odPay:'ลูกค้าจะชำระวันที่', odQ3:'+3 วัน', odQ7:'+7 วัน', odQ14:'+14 วัน', odEom:'สิ้นเดือน',
+  odProbQ:'ลูกค้ารายนี้มีปัญหาหรือไม่?', odNoProb:'ไม่มีปัญหา', odp0:'ไม่มีเงิน', odp1:'บิลมีข้อโต้แย้ง', odp2:'ติดต่อไม่ได้', odp3:'อื่น ๆ',
+  odNote:'รายละเอียด', odNoteOpt:'(ไม่บังคับ)', odOldTitle:'เกิน {n} วัน — เหตุใดบิลนี้ยังไม่ชำระ?', odOldCopy:'ใช้ความเห็นเดียวกันทุกบิล',
+  odSave:'บันทึกคำตอบ', odSaving:'กำลังบันทึก…', odSaved:'บันทึกแล้ว ✓', odDays:'วัน', odCn:'ใบลดหนี้', odDue:'ครบกำหนด',
+  odErrDate:'กรุณาเลือกวันที่ลูกค้าจะชำระ', odErrPast:'วันที่ชำระต้องไม่เป็นวันในอดีต',
+  odErrOther:'กรุณาอธิบายปัญหา', odErrOld:'กรุณาใส่ความเห็นให้ทุกบิลที่เกิน {n} วัน',
+  odAllDone:'ตอบครบทุกรายแล้ว 🎉', odNone:'ไม่มีลูกค้าค้างชำระ', odNoMatch:'ไม่พบลูกค้าที่ตรงกัน',
+  odNotReg:'บัญชี LINE ของคุณยังไม่ได้เชื่อมกับรหัสเซลส์ — บันทึกใบเสร็จหนึ่งครั้งก่อน หรือแจ้งแอดมิน',
+  odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ'
+});
+
+/* ---------- state + helpers ---------- */
+const PROBS = ['No funds', 'Disputed bill', 'Cannot contact', 'Other'];
+let odData = null, odFilter = 'needs', odQuery = '', odOpen = {}, odDraft = {}, odReq = 0, odSaving = false;
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => (n < 10 ? '0' : '') + n;
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const fmtIso = s => { const p = String(s || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : (s || ''); };
+const probName = v => { const i = PROBS.indexOf(v); return i < 0 ? v : t('odp' + i); };
+const odVisible = () => el('tabOverdue').style.display !== 'none';
+
+// "today" always comes from the server so the phone's clock/timezone can never disagree with the sheet
+function base(){ const p = odData.today.split('-').map(Number); return { y: p[0], m: p[1], d: p[2] }; }
+function quickDate(k){
+  const b = base();
+  return k === 'eom' ? iso(new Date(b.y, b.m, 0)) : iso(new Date(b.y, b.m - 1, b.d + Number(k)));
+}
+const posInv = c => c.invoices.filter(i => !i.credit);
+const oldInv = c => c.invoices.filter(i => i.old);
+const dayClass = (n, oldDays) => n > oldDays ? 'd3' : (n >= 30 ? 'd2' : 'd1');
+
+function getDraft(c){
+  if (!odDraft[c.customerId]) {
+    const keep = c.answered && c.last;                 // editing an existing valid reply → pre-fill it
+    const d = { date: keep ? c.last.payDate : '', problem: keep ? c.last.problem : '', note: keep ? c.last.note : '', old: {} };
+    if (keep) c.invoices.forEach(i => { if (i.old && i.oldNote) d.old[i.invoiceNo] = i.oldNote; });
+    odDraft[c.customerId] = d;
+  }
+  return odDraft[c.customerId];
+}
+
+/* ---------- rendering ---------- */
+function lineHtml(i){
+  if (i.credit) return `<div class="od-line cn"><span><b>${esc(i.invoiceNo)}</b> · ${t('odCn')}</span><span>${formatSigned(i.amount)}</span></div>`;
+  return `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b> · ${t('odDue')} ${esc(i.dueDate)}<span class="od-chip ${dayClass(i.days, odData.oldDays)}">${i.days}${t('odDays')}</span></span><span>${formatSigned(i.amount)}</span></div>`;
+}
+
+function formHtml(c){
+  const d = getDraft(c);
+  const quick = [['3','odQ3'],['7','odQ7'],['14','odQ14'],['eom','odEom']]
+    .map(([k, lab]) => `<button type="button" class="od-pill ${d.date && d.date === quickDate(k) ? 'on' : ''}" data-q="${k}">${t(lab)}</button>`).join('');
+  const probs = [`<button type="button" class="od-pill ${!d.problem ? 'on' : ''}" data-p="">${t('odNoProb')}</button>`]
+    .concat(PROBS.map((p, i) => `<button type="button" class="od-pill ${d.problem === p ? 'on' : ''}" data-p="${esc(p)}">${t('odp' + i)}</button>`)).join('');
+  const note = d.problem ? `
+      <label class="od-lbl">${t('odNote')} ${d.problem === 'Other' ? '<span class="req">*</span>' : t('odNoteOpt')}</label>
+      <textarea class="od-note">${esc(d.note)}</textarea>` : '';
+  const olds = oldInv(c);
+  const oldBox = olds.length ? `
+      <div class="od-old">
+        <div class="od-oh">${tFmt('odOldTitle', { n: odData.oldDays })} <span class="req">*</span></div>
+        ${olds.map(i => `<div class="od-oldrow"><div class="od-ol"><b>${esc(i.invoiceNo)}</b> · ${i.days}${t('odDays')} · ${formatSigned(i.amount)}</div>
+          <textarea class="od-oldnote" data-inv="${esc(i.invoiceNo)}">${esc(d.old[i.invoiceNo] || '')}</textarea></div>`).join('')}
+        ${olds.length > 1 ? `<span class="od-copy" data-act="copy">${t('odOldCopy')}</span>` : ''}
+      </div>` : '';
+  return `<div class="od-form">
+      <label class="od-lbl">${t('odPay')} <span class="req">*</span></label>
+      <div class="od-pills">${quick}</div>
+      <input type="date" class="od-date" min="${odData.today}" value="${esc(d.date)}" />
+      <label class="od-lbl">${t('odProbQ')}</label>
+      <div class="od-pills">${probs}</div>
+      ${note}${oldBox}
+      <div class="od-err"></div>
+      <button type="button" class="od-save">${t('odSave')}</button>
+    </div>`;
+}
+
+function cardHtml(c){
+  const open = !!odOpen[c.customerId];
+  const hasProb = c.answered && c.last && c.last.problem;
+  const cls = hasProb ? 'prob' : (c.answered ? 'done' : 'need');
+  const n = posInv(c).length;
+  let status = `<span class="od-chip need">${t('odNeedsReply')}</span>`;
+  if (c.answered && c.last) {
+    status = `<span class="od-chip ok">${tFmt('odPays', { d: fmtIso(c.last.payDate) })}</span>` +
+      (hasProb ? `<span class="od-chip prob">${tFmt('odProbLabel', { p: esc(probName(c.last.problem)) })}</span>` : '') +
+      (!odData.readOnly ? `<span class="od-chip need" style="background:none;padding-left:0">${t('odEdit')}</span>` : '');
+  }
+  let body = '';
+  if (open) {
+    const lastBox = (odData.readOnly && c.last)
+      ? `<div class="od-last"><b>${t('odLastReply')}</b> (${esc(c.last.at)})<br>${tFmt('odPays', { d: fmtIso(c.last.payDate) })}${c.last.problem ? '<br>' + esc(probName(c.last.problem)) + (c.last.note ? ': ' + esc(c.last.note) : '') : ''}</div>`
+      : (odData.readOnly ? `<div class="od-last">${t('odNoReply')}</div>` : '');
+    body = `<div class="od-body">${c.invoices.map(lineHtml).join('')}${lastBox}${odData.readOnly ? '' : formHtml(c)}</div>`;
+  }
+  return `<div class="od-card ${cls}" data-cid="${esc(c.customerId)}">
+    <div class="od-head"><div><div class="od-name">${esc(c.customerName)}</div>
+      <div class="od-sub">${esc(c.customerId)} · ${n === 1 ? t('odInv1') : tFmt('odInvN', { n: n })}</div>${status}</div>
+      <div class="od-right"><div class="od-amt ${c.total < 0 ? 'neg' : ''}">${formatSigned(c.total)}</div>
+      <span class="od-chip ${dayClass(c.maxDays, odData.oldDays)}">${tFmt('odOldest', { n: c.maxDays })}</span></div></div>${body}</div>`;
+}
+
+function findCard(cid){
+  return [...el('overdueList').children].find(n => n.dataset && n.dataset.cid === cid) || null;
+}
+function refreshCard(cid){
+  const c = odData.customers.find(x => x.customerId === cid), node = findCard(cid);
+  if (c && node) node.outerHTML = cardHtml(c);
+}
+
+function renderOverdue(){
+  if (!odData) return;
+  const all = odData.customers;
+  const answered = all.filter(c => c.answered).length;
+  const total = all.reduce((s, c) => s + c.total, 0);
+  el('odHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px">
+      <div class="sg-label">${t('odTotal')}${odData.readOnly ? ' · ' + t('odReadOnly') : ''}</div>
+      <div class="sg-total" style="margin:2px 0 4px">${formatSigned(total)}</div>
+      <div class="sg-label">${tFmt('odOf', { a: answered, b: all.length })}</div>
+      <div style="height:6px;background:rgba(255,255,255,.3);border-radius:3px;margin-top:10px;overflow:hidden"><div style="width:${all.length ? Math.round(answered / all.length * 100) : 0}%;height:100%;background:#fff"></div></div></div>`;
+  [...el('odFilter').children].forEach(b => b.classList.toggle('active', b.dataset.f === odFilter));
+
+  const q = odQuery.trim().toLowerCase();
+  let cs = all;
+  if (q) cs = cs.filter(c => c.customerName.toLowerCase().includes(q) || c.customerId.toLowerCase().includes(q));
+  if (odFilter === 'needs') cs = cs.filter(c => !c.answered);
+  else if (odFilter === 'prob') cs = cs.filter(c => c.answered && c.last && c.last.problem);
+
+  if (!cs.length) {
+    el('overdueList').innerHTML = `<div class="empty-state">${q ? t('odNoMatch') : (all.length ? t('odAllDone') : t('odNone'))}</div>`;
+    return;
+  }
+  let html = '', shownDivider = false;
+  cs.forEach((c, idx) => {
+    if (odFilter === 'all' && c.answered && !shownDivider && idx > 0) { html += `<div class="od-divider">${t('odReplied')}</div>`; shownDivider = true; }
+    html += cardHtml(c);
+  });
+  el('overdueList').innerHTML = html;
+}
+
+/* ---------- loading ---------- */
+async function loadOverdue(quiet){
+  const box = el('overdueList');
+  if (!viewedSalesperson) { if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`; } return; }
+  if (!profile.userId)    { if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('identityFail')}</div>`; } return; }
+  const my = ++odReq;
+  if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`; }
+  try {
+    const url = `${GAS_ENDPOINT}?action=overdue&lineUserId=${encodeURIComponent(profile.userId)}&viewSalesId=${encodeURIComponent(viewedSalesperson.id)}&_=${Date.now()}`;
+    const d = await (await fetch(url, { cache: 'no-store' })).json();
+    if (my !== odReq) return;                                   // a newer request is in flight — ignore this one
+    if (d.error === 'notRegistered') { if (!quiet || odVisible()) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('odNotReg')}</div>`; } return; }
+    if (d.error) throw new Error(d.error);
+    odData = d;
+    const ids = {}; d.customers.forEach(c => { ids[c.customerId] = 1; });
+    Object.keys(odDraft).forEach(k => { if (!ids[k]) delete odDraft[k]; });   // drop drafts for customers no longer listed
+    if (d.viewing === d.me) el('odBadge').textContent = d.customers.filter(c => !c.answered).length || '';
+    if (odVisible()) renderOverdue();
+  } catch (err) {
+    if (my === odReq && (!quiet || odVisible())) box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`;
+  }
+}
+
+/* ---------- interaction ---------- */
+function storeInput(e){
+  const card = e.target.closest('.od-card'); if (!card) return;
+  const c = odData && odData.customers.find(x => x.customerId === card.dataset.cid); if (!c) return;
+  const d = getDraft(c);
+  if (e.target.classList.contains('od-date')) { d.date = e.target.value; [...card.querySelectorAll('[data-q]')].forEach(b => b.classList.toggle('on', d.date === quickDate(b.dataset.q))); }
+  else if (e.target.classList.contains('od-note')) d.note = e.target.value;
+  else if (e.target.classList.contains('od-oldnote')) d.old[e.target.dataset.inv] = e.target.value;
+}
+el('overdueList').addEventListener('input', storeInput);
+el('overdueList').addEventListener('change', storeInput);
+
+el('overdueList').addEventListener('click', async (e) => {
+  const card = e.target.closest('.od-card'); if (!card || !odData) return;
+  const cid = card.dataset.cid;
+  const c = odData.customers.find(x => x.customerId === cid); if (!c) return;
+
+  if (e.target.closest('.od-head')) { odOpen[cid] = !odOpen[cid]; refreshCard(cid); return; }
+  const d = getDraft(c);
+
+  const q = e.target.closest('[data-q]');
+  if (q) { d.date = quickDate(q.dataset.q); refreshCard(cid); return; }
+
+  const p = e.target.closest('[data-p]');
+  if (p) { d.problem = p.dataset.p; refreshCard(cid); return; }
+
+  if (e.target.dataset.act === 'copy') {
+    const olds = oldInv(c);
+    const src = olds.map(i => (d.old[i.invoiceNo] || '').trim()).find(Boolean);
+    if (src) olds.forEach(i => { if (!(d.old[i.invoiceNo] || '').trim()) d.old[i.invoiceNo] = src; });
+    refreshCard(cid); return;
+  }
+
+  if (e.target.classList.contains('od-save')) {
+    if (odSaving) return;
+    const err = card.querySelector('.od-err');
+    const fail = msg => { err.textContent = msg; err.className = 'od-err show'; };
+    err.className = 'od-err';
+    if (!d.date) return fail(t('odErrDate'));
+    if (d.date < odData.today) return fail(t('odErrPast'));
+    if (d.problem === 'Other' && !(d.note || '').trim()) return fail(t('odErrOther'));
+    const olds = oldInv(c);
+    if (olds.some(i => !(d.old[i.invoiceNo] || '').trim())) return fail(tFmt('odErrOld', { n: odData.oldDays }));
+
+    const oldNotes = {}; olds.forEach(i => { oldNotes[i.invoiceNo] = d.old[i.invoiceNo].trim(); });
+    const btn = e.target; odSaving = true; btn.disabled = true; btn.textContent = t('odSaving');
+    try {
+      const res = await (await fetch(GAS_ENDPOINT, {
+        method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'followup', lineUserId: profile.userId, customerId: cid, payDate: d.date,
+          problem: d.problem, note: d.problem ? (d.note || '').trim() : '', oldNotes: oldNotes })
+      })).json();
+      if (!res || !res.success) { fail((res && res.error) || t('saveErr')); btn.disabled = false; btn.textContent = t('odSave'); }
+      else { delete odDraft[cid]; odOpen[cid] = false; showToast(t('odSaved')); await loadOverdue(true); }
+    } catch (x) { fail(t('saveConnErr')); btn.disabled = false; btn.textContent = t('odSave'); }
+    finally { odSaving = false; }
+  }
+});
+
+el('odFilter').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; odFilter = b.dataset.f; renderOverdue(); });
+el('odSearch').addEventListener('input', (e) => { odQuery = e.target.value; renderOverdue(); });
+el('tabOverdueBtn').addEventListener('click', () => switchTab('overdue'));
+el('viewAsSelect').addEventListener('change', () => { if (odVisible()) loadOverdue(); });   // runs after the original handler updated viewedSalesperson
+
+/* ---------- hook into existing functions (no edits to them needed) ---------- */
+const origSwitchTab = switchTab;
+switchTab = function(tab){
+  origSwitchTab(tab);
+  el('tabOverdue').style.display = tab === 'overdue' ? 'block' : 'none';
+  el('tabOverdueBtn').classList.toggle('active', tab === 'overdue');
+  if (tab === 'overdue') loadOverdue();
+};
+const origApplyLanguage = applyLanguage;
+applyLanguage = function(lang){ origApplyLanguage(lang); if (odData && odVisible()) renderOverdue(); };
+const origLoadLists = loadLists;
+loadLists = async function(){ await origLoadLists(); loadOverdue(true); };   // quietly fills the red count on the tab
+})();
+
+(function(){
+/* ---------- STOP SUPPLY TAB (read-only list for everyone) ---------- */
+Object.assign(I18N.en, {
+  tabStop:'Stop supply', spSearch:'Search customer name or code', spCount:'customers on stop supply',
+  spNone:'No customers on stop supply.', spNoMatch:'No matching customer.', spPaidOf:'{a} of {b} invoices paid',
+  spNoInv:'No overdue invoices on record', spPaid:'Paid', spPartial:'Partial',
+  spNote:'A customer is removed automatically once receipts clear all their overdue invoices.'
+});
+Object.assign(I18N.th, {
+  tabStop:'หยุดส่งสินค้า', spSearch:'ค้นหาชื่อหรือรหัสลูกค้า', spCount:'ราย อยู่ในรายการหยุดส่งสินค้า',
+  spNone:'ไม่มีลูกค้าในรายการหยุดส่งสินค้า', spNoMatch:'ไม่พบลูกค้าที่ตรงกัน', spPaidOf:'ชำระแล้ว {a} จาก {b} บิล',
+  spNoInv:'ไม่พบบิลค้างชำระ', spPaid:'ชำระแล้ว', spPartial:'ชำระบางส่วน',
+  spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ'
+});
+
+let spData = null, spQuery = '', spOpen = {}, spReq = 0;
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const spVisible = () => el('tabStop').style.display !== 'none';
+
+function spCardHtml(c){
+  const h = spData.headers || [], ex = c.cells.slice(2), eh = h.slice(2);
+  const n = c.invoices.length, paid = c.invoices.filter(i => i.paid).length;
+  const status = n
+    ? `<span class="od-chip ${paid === n ? 'ok' : 'need'}">${tFmt('spPaidOf', { a: paid, b: n })}</span>`
+    : `<span class="od-chip d1">${t('spNoInv')}</span>`;
+  let body = '';
+  if (spOpen[c.customerId]) {
+    body = '<div class="od-body">' +
+      ex.map((v, i) => `<div class="od-line"><span>${esc(eh[i])}</span><b>${esc(v)}</b></div>`).join('') +
+      c.invoices.map(i => {
+        const chip = i.paid ? `<span class="od-chip ok">${t('spPaid')}${i.paidAt ? ' · ' + esc(i.paidAt) : ''}</span>`
+          : i.partial ? `<span class="od-chip prob">${t('spPartial')}</span>`
+          : `<span class="od-chip d3">${i.days}${t('odDays')}</span>`;
+        return `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b>${chip}</span><span>${formatSigned(i.amount)}</span></div>`;
+      }).join('') + '</div>';
+  }
+  return `<div class="od-card ${n && paid === n ? 'done' : 'need'}" data-cid="${esc(c.customerId)}">
+    <div class="od-head"><div><div class="od-name">${esc(c.cells[0])}</div>
+      <div class="od-sub">${esc(c.cells[1] || c.customerId)}</div>${status}</div>
+      <div class="od-right"><div class="od-amt">${esc(ex[0] || '')}</div><div class="od-sub">${esc(eh[0] || '')}</div></div></div>${body}</div>`;
+}
+
+function renderStop(){
+  if (!spData) return;
+  const all = spData.customers || [];
+  el('spHero').innerHTML = `<div class="sum-grand od-hero" style="margin-bottom:12px">
+      <div class="sg-total" style="margin:2px 0 4px">${all.length}</div>
+      <div class="sg-label">${t('spCount')}</div></div>
+    <div class="hint" style="margin:0 4px 12px">${t('spNote')}</div>`;
+  const q = spQuery.trim().toLowerCase();
+  const cs = q ? all.filter(c => c.cells.some(v => String(v).toLowerCase().includes(q)) || c.customerId.toLowerCase().includes(q)) : all;
+  el('stopList').innerHTML = cs.length ? cs.map(spCardHtml).join('')
+    : `<div class="empty-state">${q ? t('spNoMatch') : t('spNone')}</div>`;
+}
+
+async function loadStop(){
+  const box = el('stopList');
+  if (!profile.userId) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('identityFail')}</div>`; return; }
+  const my = ++spReq;
+  if (!spData) box.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
+  try {
+    const d = await (await fetch(`${GAS_ENDPOINT}?action=stopSupply&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`, { cache: 'no-store' })).json();
+    if (my !== spReq) return;
+    if (d.error === 'notRegistered') { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('odNotReg')}</div>`; return; }
+    if (d.error) throw new Error(d.error);
+    spData = d; renderStop();
+  } catch (err) {
+    if (my === spReq) { el('spHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`; }
+  }
+}
+
+el('stopList').addEventListener('click', (e) => {
+  const card = e.target.closest('.od-card');
+  if (!card || !spData || !e.target.closest('.od-head')) return;
+  spOpen[card.dataset.cid] = !spOpen[card.dataset.cid];
+  renderStop();
+});
+el('spSearch').addEventListener('input', (e) => { spQuery = e.target.value; renderStop(); });
+el('tabStopBtn').addEventListener('click', () => switchTab('stop'));
+
+const prevSwitchTab = switchTab;
+switchTab = function(tab){
+  prevSwitchTab(tab);
+  el('tabStop').style.display = tab === 'stop' ? 'block' : 'none';
+  el('tabStopBtn').classList.toggle('active', tab === 'stop');
+  if (tab === 'stop') { el('viewAsField').style.display = 'none'; loadStop(); }   // stop list is the same for everyone
+};
+const prevApplyLanguage = applyLanguage;
+applyLanguage = function(lang){ prevApplyLanguage(lang); if (spData && spVisible()) renderStop(); };
+})();
 
 /* ---------- init ---------- */
 (async function init(){
