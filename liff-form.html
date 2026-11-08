@@ -322,6 +322,17 @@
 #odBadge:empty{display:none}
 .tabs{flex-wrap:wrap}
 .tab-btn{flex:1 1 28%}
+#apBadge{background:var(--primary);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;margin-left:4px}
+#apBadge:empty{display:none}
+.ap-note{margin-top:0}
+.ap-thumb{display:block;width:100%;max-height:230px;object-fit:cover;border-radius:10px;border:1px solid var(--border);margin:8px 0;cursor:zoom-in;background:#f6f2f2}
+#apLb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:60;display:none;flex-direction:column}
+#apLb .lb-top{display:flex;justify-content:space-between;padding:12px 16px;color:#fff;font-size:14px}
+#apLb .lb-top a,#apLb .lb-top span{color:#fff;font-weight:600;cursor:pointer}
+#apLb .lb-img{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto}
+#apLb img{max-width:100%;max-height:100%;object-fit:contain}
+#apLb .lb-acts{display:flex;gap:10px;padding:14px 16px 22px}
+#apLb .lb-acts button{flex:1;padding:14px;border:none;border-radius:12px;font:600 15.5px 'Kanit',sans-serif;color:#fff;cursor:pointer}
 </style>
 </head>
 <body>
@@ -348,6 +359,7 @@
     <button type="button" class="tab-btn" id="tabSummaryBtn" data-i18n="tabSummary">Totals</button>
     <button type="button" class="tab-btn" id="tabOverdueBtn"><span data-i18n="tabOverdue">Overdue</span><span id="odBadge"></span></button>
     <button type="button" class="tab-btn" id="tabStopBtn" data-i18n="tabStop">Stop supply</button>
+    <button type="button" class="tab-btn" id="tabApprBtn" style="display:none"><span data-i18n="apprTab">Approvals</span><span id="apBadge"></span></button>
   </div>
 
   <!-- Finance-only: lets a Finance account switch which salesperson's
@@ -472,7 +484,7 @@
   <div id="tabOverdue" style="display:none;">
     <div id="odHero"></div>
 
-    <!-- Finance-only: export the Overdue Report as an Excel file (button is hidden for everyone else) -->
+    <!-- Only F-001 (Justin): export the Overdue Report as an Excel file (button is hidden for everyone else) -->
     <div id="odExport" style="display:none; margin:0 0 12px;">
       <button type="button" class="od-save" id="odXlsxBtn" style="margin-top:0;" data-i18n="odExpXlsx">📥 Export Excel</button>
       <div class="hint" id="odExpMsg"></div>
@@ -487,10 +499,27 @@
     <div id="overdueList"></div>
   </div>
 
+  <div id="tabAppr" style="display:none;">
+    <div class="sum-grand od-hero" id="apHero" style="margin-bottom:12px;background:#B8860B;display:block"></div>
+    <div class="summary-seg" id="apView">
+      <button type="button" data-v="pending" class="active" data-i18n="apprPending">Pending</button>
+      <button type="button" data-v="history" data-i18n="apprHistory">History</button>
+    </div>
+    <div id="apList"></div>
+  </div>
+
   <div id="tabStop" style="display:none;">
     <div class="summary-seg" id="spView">
       <button type="button" data-v="current" class="active" data-i18n="spCurrent">On stop supply</button>
       <button type="button" data-v="removed" data-i18n="spRemoved">Removed</button>
+    </div>
+    <div id="spAdmin" style="display:none;margin-bottom:12px">
+      <button type="button" class="od-save" id="spAddToggle" style="margin-top:0" data-i18n="spAdd">➕ Add customer to stop supply</button>
+      <div id="spAddPanel" style="display:none;margin-top:10px">
+        <input type="text" id="spAddSearch" class="od-search" data-i18n-placeholder="spAddSearch" placeholder="Search customer to add" autocomplete="off" />
+        <div id="spAddResults" style="border-radius:10px;overflow:hidden"></div>
+        <div id="spAddInfo"></div>
+      </div>
     </div>
     <div id="spHero"></div>
     <input type="text" id="spSearch" class="od-search" data-i18n-placeholder="spSearch" placeholder="Search customer name or code" autocomplete="off" />
@@ -802,7 +831,8 @@ function renderDebugPanel(){
     `Init error: ${liffStatus.error || '(none)'}\n` +
     `profile.userId: ${profile.userId || '(empty)'}\n` +
     `matchedSalesId from server: ${window.__matchedSalesId || '(none)'}\n` +
-    `isFinance: ${isFinance}`;
+    `isFinance: ${isFinance}\n` +
+    `canExportReport: ${!!window.__canExport}`;
 }
 
 /* ---------- receipt photo: read + compress client-side before upload ---------- */
@@ -912,6 +942,7 @@ async function loadLists(){
 
     const hint = el('identityHint');
     isFinance = !!data.isFinance;
+    window.__canExport = !!data.canExportReport;   // true ONLY for F-001 (decided by the server)
 
     if (data.matchedSalesId) {
       const match = salespersons.find(sp => sp.id === data.matchedSalesId);
@@ -1013,9 +1044,9 @@ function renderMyReceipts(){
         </div>
         <div class="mr-bills">${billsHtml}</div>
         <div class="mr-foot">
-          <span class="mr-status">${voided ? t('voided') : t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque')}</span>
+          <span class="mr-status">${voided ? t('voided') : t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque') + apprChip(r)}</span>
           <div class="mr-actions">
-            ${(!voided && canDelete) ? `<span class="mr-action danger" data-action="delete">${t('delete')}</span>` : ''}
+            ${(!voided && canDelete && r.approval !== 'Approved') ? `<span class="mr-action danger" data-action="delete">${t('delete')}</span>` : ''}
           </div>
         </div>
       </div>
@@ -1099,11 +1130,12 @@ function renderSummary(){
   }
 
   const grandTotal = summaryCache.reduce((sum, g) => sum + g.total, 0);
+  const gA = summaryCache.reduce((sum, g) => sum + (g.approved || 0), 0);
+  const gP = summaryCache.reduce((sum, g) => sum + (g.pending || 0), 0);
   grand.innerHTML = `
-    <div class="sum-grand">
-      <span class="sg-label">${t('grandTotal')}</span>
-      <span class="sg-total">${formatSigned(grandTotal)}</span>
-    </div>
+    <div class="sum-grand" style="background:#1F7A4D;margin-bottom:8px"><span class="sg-label">${t('balApproved')}</span><span class="sg-total">${formatSigned(gA)}</span></div>
+    <div class="sum-grand" style="background:#B8860B;margin-bottom:8px"><span class="sg-label">${t('balPending')}</span><span class="sg-total">${formatSigned(gP)}</span></div>
+    <div class="hint" style="margin:0 4px 14px">${t('apprNote')} · ${t('grandTotal')}: ${formatSigned(grandTotal)}</div>
   `;
 
   list.innerHTML = summaryCache.map(g => {
@@ -1114,6 +1146,7 @@ function renderSummary(){
         <div>
           <div class="sum-label">${label}</div>
           <div class="sum-count">${g.count} ${countLabel}</div>
+          <div class="sum-count">✅ ${money(g.approved || 0)} · ⏳ ${money(g.pending || 0)}</div>
         </div>
         <div class="sum-total ${g.total < 0 ? 'neg' : ''}">${formatSigned(g.total)}</div>
       </div>
@@ -1534,7 +1567,7 @@ Object.assign(I18N.en, {
   tabStop:'Stop supply', spSearch:'Search customer name or code', spCount:'customers on stop supply',
   spNone:'No customers on stop supply.', spNoMatch:'No matching customer.', spPaidOf:'{a} of {b} invoices paid',
   spNoInv:'No overdue invoices on record', spPaid:'Paid', spPartial:'Partial',
-  spNote:'A customer is removed automatically once receipts clear all their overdue invoices.',
+  spNote:'A customer is removed automatically once approved receipts clear all their overdue invoices.',
   spCurrent:'On stop supply', spRemoved:'Removed', spRemovedCount:'customers removed (cleared)',
   spRemovedNone:'No customers removed yet.', spRemovedOn:'Removed {d}', spCleared:'Invoices cleared',
   spRemovedNote:'Customers taken off the list automatically after receipts cleared all their overdue invoices. Newest first.',
@@ -1544,7 +1577,7 @@ Object.assign(I18N.th, {
   tabStop:'หยุดส่งสินค้า', spSearch:'ค้นหาชื่อหรือรหัสลูกค้า', spCount:'ราย อยู่ในรายการหยุดส่งสินค้า',
   spNone:'ไม่มีลูกค้าในรายการหยุดส่งสินค้า', spNoMatch:'ไม่พบลูกค้าที่ตรงกัน', spPaidOf:'ชำระแล้ว {a} จาก {b} บิล',
   spNoInv:'ไม่พบบิลค้างชำระ', spPaid:'ชำระแล้ว', spPartial:'ชำระบางส่วน',
-  spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ',
+  spNote:'ลูกค้าจะถูกนำออกจากรายการอัตโนมัติเมื่อใบเสร็จที่อนุมัติแล้วครอบคลุมทุกบิลที่ค้างชำระ',
   spCurrent:'หยุดส่งอยู่', spRemoved:'นำออกแล้ว', spRemovedCount:'ราย ถูกนำออกจากรายการแล้ว',
   spRemovedNone:'ยังไม่มีลูกค้าที่ถูกนำออก', spRemovedOn:'นำออก {d}', spCleared:'บิลที่ชำระแล้ว',
   spRemovedNote:'ลูกค้าที่ถูกนำออกจากรายการอัตโนมัติหลังใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ เรียงจากล่าสุด',
@@ -1574,7 +1607,7 @@ function spCardHtml(c){
           : i.partial ? `<span class="od-chip prob">${t('spPartial')}</span>`
           : `<span class="od-chip d3">${i.days}${t('odDays')}</span>`;
         return `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b>${chip}</span><span>${formatSigned(i.amount)}</span></div>`;
-      }).join('') + '</div>';
+      }).join('') + (isFinance ? `<button type="button" class="od-save sp-del" data-cid="${esc(c.customerId)}" style="background:#8C1327">${t('spDel')}</button>` : '') + '</div>';
   }
   return `<div class="od-card ${n && paid === n ? 'done' : 'need'}" data-cid="${esc(c.customerId)}">
     <div class="od-head"><div><div class="od-name">${esc(c.cells[0])}</div>
@@ -1697,7 +1730,7 @@ applyLanguage = function(lang){ prevApplyLanguage(lang); if ((spData || rmData) 
 })();
 
 (function(){
-/* ---------- FINANCE ONLY: export the overdue report as Excel ---------- */
+/* ---------- ONLY F-001: export the overdue report as Excel ---------- */
 Object.assign(I18N.en, {
   odExpXlsx:'📥 Export Excel', odExpBusy:'Preparing file…',
   odExpReady:'Download ready — tap here if it did not open', odExpErr:'Could not export'
@@ -1737,12 +1770,193 @@ async function runExport(){
 }
 el('odXlsxBtn').addEventListener('click', runExport);
 
-// show the button for Finance accounts only (the server re-checks, so this is cosmetic)
+// Show the button ONLY for F-001. The server decides (canExportReport) and re-checks on every export call.
 const lastLoadLists = loadLists;
 loadLists = async function(){
   await lastLoadLists();
-  el('odExport').style.display = isFinance ? 'block' : 'none';
+  el('odExport').style.display = window.__canExport ? 'block' : 'none';
 };
+})();
+
+/* ---------- helpers shared by the approval + stop-supply admin blocks ---------- */
+const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function apprChip(r){
+  const a = r.approval || 'Approved';
+  const col = a === 'Approved' ? 'background:#E6F4EC;color:#1F7A4D' : a === 'Rejected' ? 'background:#F6E3E1;color:#8C1327' : 'background:#FFF6E5;color:#B8860B';
+  const extra = a === 'Rejected' && r.reviewNote ? ': ' + escH(r.reviewNote) : '';
+  return ` <span class="od-chip" style="${col};margin:0 0 0 6px">${t('appr' + a)}${extra}</span>`;
+}
+
+/* ---------- APPROVALS TAB (Finance only) ---------- */
+(function(){
+Object.assign(I18N.en, {
+  apprTab:'Approvals', apprPending:'Pending', apprHistory:'History', apprApproved:'Approved', apprRejected:'Rejected',
+  apprNone:'Nothing waiting for approval 🎉', apprHistNone:'No decisions in the last 14 days.',
+  apprApprove:'Approve', apprReject:'Reject', apprUndo:'Undo', apprReasonPh:'Reason for rejecting', apprConfirm:'Confirm',
+  apprPhoto:'View receipt photo', apprOwn:'your own', apprDone:'Saved ✓', apprBy:'by',
+  balApproved:'Approved balance (counted as in bank)', balPending:'Unapproved balance (waiting)',
+  apprNote:'Only approved receipts count as money in the bank.'
+});
+Object.assign(I18N.th, {
+  apprTab:'อนุมัติ', apprPending:'รออนุมัติ', apprHistory:'ประวัติ', apprApproved:'อนุมัติแล้ว', apprRejected:'ถูกปฏิเสธ',
+  apprNone:'ไม่มีใบเสร็จรออนุมัติ 🎉', apprHistNone:'ไม่มีรายการใน 14 วันที่ผ่านมา',
+  apprApprove:'อนุมัติ', apprReject:'ปฏิเสธ', apprUndo:'ยกเลิกการอนุมัติ', apprReasonPh:'เหตุผลที่ปฏิเสธ', apprConfirm:'ยืนยัน',
+  apprPhoto:'ดูรูปใบเสร็จ', apprOwn:'ของคุณเอง', apprDone:'บันทึกแล้ว ✓', apprBy:'โดย',
+  balApproved:'ยอดที่อนุมัติแล้ว (นับเป็นเงินเข้าธนาคาร)', balPending:'ยอดที่ยังไม่อนุมัติ (รอตรวจสอบ)',
+  apprNote:'เฉพาะใบเสร็จที่อนุมัติแล้วเท่านั้นที่นับเป็นเงินเข้าธนาคาร'
+});
+let apView = 'pending', apData = null, apReq = 0;
+const apVisible = () => el('tabAppr').style.display !== 'none';
+
+const driveId = u => { const m = String(u || '').match(/\/d\/([^/?]+)|[?&]id=([^&]+)/); return m ? (m[1] || m[2]) : ''; };
+const apThumb = u => { const id = driveId(u); return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1600` : (u || ''); };
+function apCard(r){
+  const bills = r.bills.map(b => `<div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : t('bill')} ${escH(b.billNo)}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>`).join('');
+  const pay = t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque') + (r.paymentType === 'Cheque' ? ' · ' + escH(r.chequeType) + ' ' + escH(r.chequeDate) : '');
+  const th = apThumb(r.receiptImage);
+  const img = r.receiptImage ? `<img class="ap-thumb" src="${escH(th)}" data-full="${escH(th)}" data-link="${escH(r.receiptImage)}" loading="lazy" alt="${t('apprPhoto')}" />` : '';
+  const acts = r.approval === 'Pending'
+    ? `<span class="mr-action" data-act="Approved">✅ ${t('apprApprove')}</span><span class="mr-action danger" data-act="RejectOpen">✖ ${t('apprReject')}</span>`
+    : `<span class="mr-action danger" data-act="Pending">↩ ${t('apprUndo')}</span>`;
+  const by = r.approval !== 'Pending' && r.approvedBy ? `<div class="hint">${t('appr' + r.approval)} ${t('apprBy')} ${escH(r.approvedBy)}${r.approvedAt ? ' · ' + escH(r.approvedAt) : ''}</div>` : '';
+  return `<div class="mr-card" data-rid="${escH(r.receiptId)}">
+    <div class="mr-head"><div><div class="mr-date">${escH(r.date)} · 👤 ${escH(r.salesName || r.salesId)}${r.own ? ' (' + t('apprOwn') + ')' : ''}</div>
+      <div class="mr-customer">${escH(r.customerName)}</div></div>
+      <div class="mr-total ${r.total < 0 ? 'neg' : ''}">${formatSigned(r.total)}</div></div>
+    <div class="mr-bills">${bills}</div>
+    ${img}<div class="hint">${pay}</div>${by}${r.approval === 'Rejected' && r.reviewNote ? `<div class="hint error">${escH(r.reviewNote)}</div>` : ''}
+    <div class="mr-foot"><span class="mr-status">${t('appr' + r.approval)}</span><div class="mr-actions">${acts}</div></div>
+    <div class="ap-rej" style="display:none;margin-top:10px"><input type="text" class="ap-note" placeholder="${t('apprReasonPh')}" />
+      <div class="mr-actions" style="margin-top:8px"><span class="mr-action danger" data-act="Rejected">${t('apprConfirm')}</span></div></div>
+  </div>`;
+}
+function apRender(){
+  if (!apData) return;
+  el('apHero').innerHTML = `<div class="sg-label">${t('balPending')} · ${apData.pendingCount}</div><div class="sg-total" style="margin:2px 0 4px">${formatSigned(apData.pendingTotal)}</div><div class="sg-label">${t('apprNote')}</div>`;
+  [...el('apView').children].forEach(b => b.classList.toggle('active', b.dataset.v === apView));
+  el('apList').innerHTML = apData.receipts.length ? apData.receipts.map(apCard).join('') : `<div class="empty-state">${apView === 'pending' ? t('apprNone') : t('apprHistNone')}</div>`;
+}
+async function apLoad(quiet){
+  if (!isFinance || !profile.userId) return;
+  const my = ++apReq;
+  if (!quiet) el('apList').innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
+  try {
+    const d = await (await fetch(`${GAS_ENDPOINT}?action=pendingApprovals&view=${apView}&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`, { cache: 'no-store' })).json();
+    if (my !== apReq) return;
+    if (d.error) throw new Error(d.error);
+    apData = d; el('apBadge').textContent = d.pendingCount || '';
+    if (apVisible()) apRender();
+  } catch (err) { if (apVisible()) el('apList').innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`; }
+}
+el('apView').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; apView = b.dataset.v; apData = null; apLoad(); });
+el('apList').addEventListener('click', async e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const card = b.closest('.mr-card'), act = b.dataset.act;
+  if (act === 'RejectOpen') { card.querySelector('.ap-rej').style.display = 'block'; return; }
+  if (act === 'Pending' && !confirm(t('apprUndo') + '?')) return;
+  const note = act === 'Rejected' ? card.querySelector('.ap-note').value.trim() : '';
+  if (act === 'Rejected' && !note) { card.querySelector('.ap-note').focus(); return; }
+  b.style.opacity = .5;
+  try {
+    const r = await (await fetch(GAS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'approval', lineUserId: profile.userId, receiptId: card.dataset.rid, decision: act, note: note }) })).json();
+    if (!r || !r.success) { showToast((r && r.error) || t('saveErr'), true); b.style.opacity = 1; return; }
+    showToast(t('apprDone')); apLoad(true);
+  } catch (x) { showToast(t('saveConnErr'), true); b.style.opacity = 1; }
+});
+/* tap a receipt photo -> full-screen viewer with Approve / Reject right there */
+let apLbRid = '';
+const apLbClose = () => { el('apLb').style.display = 'none'; el('apLbImg').src = ''; };
+const apCardOf = () => [...el('apList').children].find(n => n.dataset && n.dataset.rid === apLbRid);
+el('apList').addEventListener('click', e => {
+  const im = e.target.closest('.ap-thumb'); if (!im) return;
+  const card = im.closest('.mr-card'); apLbRid = card.dataset.rid;
+  el('apLbImg').src = im.dataset.full; el('apLbOpen').href = im.dataset.link;
+  el('apLbOk').textContent = '✅ ' + t('apprApprove'); el('apLbNo').textContent = '✖ ' + t('apprReject');
+  el('apLbActs').style.display = card.querySelector('[data-act="Approved"]') ? 'flex' : 'none';
+  el('apLb').style.display = 'flex';
+});
+el('apLbClose').addEventListener('click', apLbClose);
+el('apLbOk').addEventListener('click', () => { const c = apCardOf(); apLbClose(); if (c) c.querySelector('[data-act="Approved"]').click(); });
+el('apLbNo').addEventListener('click', () => { const c = apCardOf(); apLbClose(); if (c) { c.querySelector('[data-act="RejectOpen"]').click(); c.scrollIntoView({ block: 'center' }); } });
+el('tabApprBtn').addEventListener('click', () => switchTab('appr'));
+const apPrevTab = switchTab;
+switchTab = function(tab){
+  apPrevTab(tab);
+  el('tabAppr').style.display = tab === 'appr' ? 'block' : 'none';
+  el('tabApprBtn').classList.toggle('active', tab === 'appr');
+  if (tab === 'appr') { el('viewAsField').style.display = 'none'; apLoad(); }
+};
+const apPrevLang = applyLanguage;
+applyLanguage = function(l){ apPrevLang(l); if (apData && apVisible()) apRender(); };
+const apPrevLists = loadLists;
+loadLists = async function(){
+  await apPrevLists();
+  el('tabApprBtn').style.display = isFinance ? '' : 'none';
+  el('spAdmin').style.display = isFinance ? 'block' : 'none';
+  if (isFinance) apLoad(true);
+};
+})();
+
+/* ---------- STOP SUPPLY ADMIN: add / remove customers (Finance only) ---------- */
+(function(){
+Object.assign(I18N.en, {
+  spAdd:'➕ Add customer to stop supply', spAddSearch:'Search customer to add (ID or name)',
+  spAddInfo:'{n} overdue invoices · ฿{a} will be linked automatically', spAddNoInv:'No overdue invoices on record yet — add them below if needed.',
+  spAddOn:'Already on stop supply', spExtra:'Extra invoices (optional) — one per line:\ninvoice no, amount, due date (dd/mm/yyyy)',
+  spAddBtn:'Add to stop supply', spDel:'Remove from stop supply', spDelConfirm:'Remove this customer from stop supply?',
+  spAdded:'Added ✓', spRemovedToast:'Removed ✓'
+});
+Object.assign(I18N.th, {
+  spAdd:'➕ เพิ่มลูกค้าเข้ารายการหยุดส่ง', spAddSearch:'ค้นหาลูกค้าที่จะเพิ่ม (รหัสหรือชื่อ)',
+  spAddInfo:'บิลค้างชำระ {n} ใบ · ฿{a} จะเชื่อมให้อัตโนมัติ', spAddNoInv:'ยังไม่พบบิลค้างชำระ — เพิ่มด้านล่างได้ถ้าต้องการ',
+  spAddOn:'อยู่ในรายการหยุดส่งแล้ว', spExtra:'บิลเพิ่มเติม (ไม่บังคับ) — บรรทัดละ 1 บิล:\nเลขที่บิล, จำนวนเงิน, วันครบกำหนด (dd/mm/yyyy)',
+  spAddBtn:'เพิ่มเข้ารายการหยุดส่ง', spDel:'นำออกจากรายการหยุดส่ง', spDelConfirm:'นำลูกค้ารายนี้ออกจากรายการหยุดส่ง?',
+  spAdded:'เพิ่มแล้ว ✓', spRemovedToast:'นำออกแล้ว ✓'
+});
+const post = body => fetch(GAS_ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ lineUserId: profile.userId }, body)) }).then(r => r.json());
+let sel = null;
+const reload = () => switchTab('stop');
+el('spAddToggle').addEventListener('click', () => { const p = el('spAddPanel'); p.style.display = p.style.display === 'none' ? 'block' : 'none'; });
+el('spAddSearch').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase(), box = el('spAddResults');
+  if (!q) { box.innerHTML = ''; box.style.border = 'none'; return; }
+  const m = customers.filter(c => String(c.id).toLowerCase().includes(q) || String(c.name).toLowerCase().includes(q)).slice(0, 8);
+  box.style.border = '1.5px solid var(--border)';
+  box.innerHTML = m.map(c => `<div class="result-item" data-id="${escH(c.id)}" data-name="${escH(c.name)}"><div class="id">${escH(c.id)}</div><div class="name">${escH(c.name)}</div></div>`).join('') || `<div class="no-results">${t('noMatchingCustomer')}</div>`;
+});
+el('spAddResults').addEventListener('click', async e => {
+  const it = e.target.closest('.result-item'); if (!it || !it.dataset.id) return;
+  sel = { id: it.dataset.id, name: it.dataset.name };
+  el('spAddSearch').value = ''; el('spAddResults').innerHTML = ''; el('spAddResults').style.border = 'none';
+  el('spAddInfo').innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
+  try {
+    const d = await (await fetch(`${GAS_ENDPOINT}?action=stopCustomerInfo&customerId=${encodeURIComponent(sel.id)}&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`, { cache: 'no-store' })).json();
+    if (d.error) throw new Error(d.error);
+    const line = d.onStop ? t('spAddOn') : (d.invoices.length ? tFmt('spAddInfo', { n: d.invoices.length, a: money(d.total) }) : t('spAddNoInv'));
+    el('spAddInfo').innerHTML = `<div class="od-form"><div class="od-last" style="margin-top:0"><b>${escH(sel.id)}</b> — ${escH(sel.name)}<br>${line}</div>
+      <label class="od-lbl" style="white-space:pre-line">${t('spExtra')}</label><textarea id="spExtra"></textarea>
+      <div class="od-err" id="spAddErr"></div><button type="button" class="od-save" id="spAddGo" ${d.onStop ? 'disabled' : ''}>${t('spAddBtn')}</button></div>`;
+  } catch (err) { el('spAddInfo').innerHTML = `<div class="od-err show">${escH(err.message || t('mineLoadError'))}</div>`; }
+});
+el('spAddInfo').addEventListener('click', async e => {
+  if (e.target.id !== 'spAddGo' || !sel) return;
+  const btn = e.target, er = el('spAddErr'); btn.disabled = true; er.className = 'od-err';
+  try {
+    const r = await post({ action: 'stopAdd', customerId: sel.id, customerName: sel.name, extraInvoices: el('spExtra').value });
+    if (!r || !r.success) { er.textContent = (r && r.error) || t('saveErr'); er.className = 'od-err show'; btn.disabled = false; return; }
+    showToast(t('spAdded')); sel = null; el('spAddInfo').innerHTML = ''; el('spAddPanel').style.display = 'none'; reload();
+  } catch (x) { er.textContent = t('saveConnErr'); er.className = 'od-err show'; btn.disabled = false; }
+});
+el('stopList').addEventListener('click', async e => {
+  const b = e.target.closest('.sp-del'); if (!b || !confirm(t('spDelConfirm'))) return;
+  b.disabled = true;
+  try {
+    const r = await post({ action: 'stopRemove', customerId: b.dataset.cid });
+    if (!r || !r.success) { showToast((r && r.error) || t('saveErr'), true); b.disabled = false; return; }
+    showToast(t('spRemovedToast')); reload();
+  } catch (x) { showToast(t('saveConnErr'), true); b.disabled = false; }
+});
 })();
 
 /* ---------- init ---------- */
@@ -1782,5 +1996,13 @@ loadLists = async function(){
   await loadLists();
 })();
 </script>
+<div id="apLb">
+  <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span id="apLbClose">✕</span></div>
+  <div class="lb-img"><img id="apLbImg" alt="" /></div>
+  <div class="lb-acts" id="apLbActs">
+    <button type="button" id="apLbOk" style="background:#1F7A4D">✅</button>
+    <button type="button" id="apLbNo" style="background:#8C1327">✖</button>
+  </div>
+</div>
 </body>
 </html>
