@@ -533,6 +533,19 @@
   </div>
 </div>
 
+<!-- Receipt photo viewer (Approvals tab).
+     FIX: this block MUST come BEFORE the <script> below. Previously it sat after the script,
+     so el('apLbClose') was null when the Approvals code ran, which threw an error and stopped
+     the rest of the page (including init()) from running. -->
+<div id="apLb">
+  <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span id="apLbClose">✕</span></div>
+  <div class="lb-img"><img id="apLbImg" alt="" /></div>
+  <div class="lb-acts" id="apLbActs">
+    <button type="button" id="apLbOk" style="background:#1F7A4D">✅</button>
+    <button type="button" id="apLbNo" style="background:#8C1327">✖</button>
+  </div>
+</div>
+
 <script>
 /* ====================== CONFIG ====================== */
 const LIFF_ID = "2011154066-sbzdMqVz";
@@ -1996,13 +2009,5 @@ el('stopList').addEventListener('click', async e => {
   await loadLists();
 })();
 </script>
-<div id="apLb">
-  <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span id="apLbClose">✕</span></div>
-  <div class="lb-img"><img id="apLbImg" alt="" /></div>
-  <div class="lb-acts" id="apLbActs">
-    <button type="button" id="apLbOk" style="background:#1F7A4D">✅</button>
-    <button type="button" id="apLbNo" style="background:#8C1327">✖</button>
-  </div>
-</div>
 </body>
 </html>
