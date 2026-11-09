@@ -9,7 +9,6 @@
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <style>
   :root{
-    /* ---- Red & white theme ---- */
     --primary:#D6293E;
     --primary-dark:#A81F30;
     --primary-bg:#FDECEE;
@@ -36,12 +35,10 @@
 
   .wrap{ max-width:480px; margin:0 auto; padding:16px 16px 110px; }
 
-  /* --- Header --- */
   header{ padding:6px 4px 16px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
   header .eyebrow{ font-size:12px; font-weight:600; color:var(--primary-dark); letter-spacing:.04em; text-transform:uppercase; }
   header h1{ margin:2px 0 0; font-size:21px; font-weight:600; }
 
-  /* --- Language toggle --- */
   .lang-toggle{ display:flex; gap:4px; background:var(--primary-bg); padding:3px; border-radius:9px; flex-shrink:0; margin-top:2px; }
   .lang-btn{
     border:none; background:transparent; padding:6px 10px; border-radius:7px;
@@ -50,7 +47,6 @@
   }
   .lang-btn.active{ background:var(--primary); color:#fff; opacity:1; }
 
-  /* --- Live chat-bubble receipt preview --- */
   .bubble-row{ display:flex; margin-top:4px; margin-bottom:4px; }
   .bubble{
     background:var(--primary);
@@ -71,7 +67,6 @@
   .bubble .amt{ font-size:20px; font-weight:700; margin-top:4px; }
   .bubble .amt.neg{ color:#FFD9DC; }
 
-  /* --- Card / section --- */
   .card{
     background:var(--card);
     border:1px solid var(--border);
@@ -109,7 +104,6 @@
     padding-right:34px;
   }
 
-  /* customer search */
   .search-box{ position:relative; }
   .results{
     position:absolute; left:0; right:0; top:calc(100% + 6px);
@@ -133,7 +127,6 @@
   .selected-customer.show{ display:flex; }
   .selected-customer .clear{ color:var(--primary-dark); font-weight:600; cursor:pointer; }
 
-  /* payment type segmented control */
   .seg{ display:flex; gap:8px; }
   .seg button{
     flex:1; padding:12px 6px; border-radius:10px; border:1.5px solid var(--border);
@@ -149,7 +142,6 @@
   .cheque-panel.show{ display:block; }
   .cheque-panel label{ color:#7A5800; }
 
-  /* --- Multi bill / credit note rows --- */
   #billRows{ margin-bottom:10px; }
   .bill-row{
     border:1.5px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px;
@@ -180,7 +172,6 @@
   .bills-total .val{ font-size:16px; color:var(--ink); }
   .bills-total .val.neg{ color:var(--danger); }
 
-  /* --- Receipt photo picker --- */
   .photo-btn-row{ display:flex; gap:8px; }
   .photo-btn{
     flex:1; width:100%; padding:13px 8px; border:1.5px dashed var(--border); border-radius:10px;
@@ -196,7 +187,6 @@
   .amount-prefix span{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px; }
   .amount-prefix input{ padding-left:34px; }
 
-  /* --- Sticky submit bar --- */
   .submit-bar{
     position:fixed; left:0; right:0; bottom:0;
     background:linear-gradient(180deg, rgba(255,255,255,0) 0%, var(--page-bg) 35%);
@@ -220,7 +210,6 @@
   .toast.show{ display:block; }
   .toast.err{ background:var(--danger); }
 
-  /* --- Tabs --- */
   .tabs{ display:flex; gap:8px; margin-bottom:16px; }
   .tab-btn{
     flex:1; padding:10px 4px; border-radius:10px; border:1.5px solid var(--border); background:#fff;
@@ -228,7 +217,6 @@
   }
   .tab-btn.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
 
-  /* --- My receipts --- */
   .empty-state{ text-align:center; padding:44px 16px; color:var(--ink-soft); font-size:13.5px; }
   .mr-card{
     background:var(--card); border:1px solid var(--border); border-radius:var(--radius); padding:14px; margin-bottom:10px;
@@ -249,7 +237,6 @@
   .mr-action{ font-size:12.5px; font-weight:600; color:var(--primary-dark); cursor:pointer; margin-left:14px; }
   .mr-action.danger{ color:var(--danger); }
 
-  /* --- Totals tab --- */
   .summary-seg{ display:flex; gap:8px; margin-bottom:14px; }
   .summary-seg button{
     flex:1; padding:11px 4px; border-radius:10px; border:1.5px solid var(--border);
@@ -271,7 +258,6 @@
   .sum-grand .sg-label{ font-size:13px; opacity:.9; font-weight:600; }
   .sum-grand .sg-total{ font-size:20px; font-weight:700; }
 
-  /* --- Debug panel (only shown when ?debug=1 is in the URL) --- */
   .debug-panel{
     display:none; margin-bottom:12px; padding:10px 12px; background:#FFF7F7; border:1px dashed var(--danger);
     border-radius:10px; font-size:11.5px; color:var(--ink-soft); white-space:pre-wrap; word-break:break-all;
@@ -360,13 +346,9 @@
     <button type="button" class="tab-btn" id="tabOverdueBtn"><span data-i18n="tabOverdue">Overdue</span><span id="odBadge"></span></button>
     <button type="button" class="tab-btn" id="tabStopBtn" data-i18n="tabStop">Stop supply</button>
     <button type="button" class="tab-btn" id="tabApprBtn" style="display:none"><span data-i18n="apprTab">Approvals</span><span id="apBadge"></span></button>
+    <button type="button" class="tab-btn" id="tabChequesBtn" style="display:none" data-i18n="tabCheques">Cheques</button>
   </div>
 
-  <!-- Finance-only: lets a Finance account switch which salesperson's
-       My receipts / Totals / Overdue they're looking at. Includes an
-       "All salespeople" option (value "*") that only affects Overdue.
-       Hidden entirely for everyone else. Filing (New receipt) always
-       stays locked to your own identity. -->
   <div class="field" id="viewAsField" style="display:none; margin:0 4px 14px;">
     <label data-i18n="viewingAs">Viewing data for</label>
     <select id="viewAsSelect"></select>
@@ -453,7 +435,6 @@
       </div>
     </div>
 
-    <!-- Live preview — placed last, right above the sticky Save button. -->
     <div class="bubble-row">
       <div class="bubble" id="preview">
         <div class="bt" data-i18n="previewLabel">Will be recorded as</div>
@@ -484,7 +465,6 @@
   <div id="tabOverdue" style="display:none;">
     <div id="odHero"></div>
 
-    <!-- Only F-001 (Justin): export the Overdue Report as an Excel file (button is hidden for everyone else) -->
     <div id="odExport" style="display:none; margin:0 0 12px;">
       <button type="button" class="od-save" id="odXlsxBtn" style="margin-top:0;" data-i18n="odExpXlsx">📥 Export Excel</button>
       <div class="hint" id="odExpMsg"></div>
@@ -525,6 +505,15 @@
     <input type="text" id="spSearch" class="od-search" data-i18n-placeholder="spSearch" placeholder="Search customer name or code" autocomplete="off" />
     <div id="stopList"></div>
   </div>
+
+  <div id="tabCheques" style="display:none;">
+    <div class="summary-seg" id="chqFilter">
+      <button type="button" data-f="all" class="active" data-i18n="chqAll">All</button>
+      <button type="button" data-f="pending" data-i18n="apprPending">Pending</button>
+      <button type="button" data-f="approved" data-i18n="apprApproved">Approved</button>
+    </div>
+    <div id="chequeList"></div>
+  </div>
 </div>
 
 <div class="submit-bar" id="submitBar">
@@ -533,10 +522,6 @@
   </div>
 </div>
 
-<!-- Receipt photo viewer (Approvals tab).
-     FIX: this block MUST come BEFORE the <script> below. Previously it sat after the script,
-     so el('apLbClose') was null when the Approvals code ran, which threw an error and stopped
-     the rest of the page (including init()) from running. -->
 <div id="apLb">
   <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span id="apLbClose">✕</span></div>
   <div class="lb-img"><img id="apLbImg" alt="" /></div>
@@ -547,12 +532,9 @@
 </div>
 
 <script>
-/* ====================== CONFIG ====================== */
 const LIFF_ID = "2011154066-sbzdMqVz";
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbySYY8nPbtar025yHlMoQ0wWRIeL1HpDnGnKt1K8dnmCtkpD7zapkQd2gx08dFrMhnlrg/exec";
-/* ==================================================== */
 
-/* ---------- i18n: Thai / English ---------- */
 const I18N = {
   en: {
     eyebrow: 'Sales Receipt', title: 'Log a customer receipt',
@@ -592,7 +574,9 @@ const I18N = {
     identityFail: 'Could not verify your LINE identity automatically — select your name manually, or reopen this form from the LINE chat.',
     noMatchingCustomer: 'No matching customer',
     viewingAs: 'Viewing data for',
-    allSales: '★ All salespeople'
+    allSales: '★ All salespeople',
+    tabCheques: 'Cheques', chqAll: 'All', chqNone: 'No cheque receipts.',
+    chqType: 'Cheque type', chqDate: 'Cheque date'
   },
   th: {
     eyebrow: 'ใบเสร็จรับเงิน', title: 'บันทึกใบเสร็จลูกค้า',
@@ -632,7 +616,9 @@ const I18N = {
     identityFail: 'ไม่สามารถยืนยันตัวตน LINE ของคุณโดยอัตโนมัติได้ — เลือกชื่อของคุณเอง หรือเปิดแบบฟอร์มนี้จากแชท LINE อีกครั้ง',
     noMatchingCustomer: 'ไม่พบลูกค้าที่ตรงกัน',
     viewingAs: 'กำลังดูข้อมูลของ',
-    allSales: '★ Sales ทั้งหมด'
+    allSales: '★ Sales ทั้งหมด',
+    tabCheques: 'เช็ค', chqAll: 'ทั้งหมด', chqNone: 'ไม่มีใบเสร็จที่เป็นเช็ค',
+    chqType: 'ประเภทเช็ค', chqDate: 'วันที่เช็ค'
   }
 };
 
@@ -640,7 +626,7 @@ let currentLang = 'th';
 try {
   const saved = localStorage.getItem('receiptFormLang');
   if (saved === 'en' || saved === 'th') currentLang = saved;
-} catch (err) { /* localStorage unavailable — default to Thai */ }
+} catch (err) { /* ignore */ }
 
 function t(key){ return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
 function tFmt(key, vars){
@@ -667,7 +653,6 @@ function applyLanguage(lang){
 
   [...el('langToggle').children].forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
 
-  // keep the "All salespeople" label in the viewer switcher in the right language
   const allOpt = el('viewAsSelect').querySelector('option[value="*"]');
   if (allOpt) allOpt.textContent = t('allSales');
 
@@ -682,9 +667,11 @@ function el(id){ return document.getElementById(id); }
 let customers = [];
 let salespersons = [];
 let selectedCustomer = null;
-let selectedSalesperson = null;  // who this LINE account is registered as — always the identity used for filing/void
-let isFinance = false;           // true when the logged-in identity's Sales ID starts with "F-"
-let viewedSalesperson = null;    // whose My receipts / Totals / Overdue are currently shown; Finance accounts can change this
+let selectedSalesperson = null;
+let isFinance = false;
+let isGuest = false;
+let guestHasReceipt = false;
+let viewedSalesperson = null;
 let paymentType = null;
 let receiptImageDataUrl = null;
 let profile = { userId: "", displayName: "" };
@@ -708,7 +695,6 @@ function formatSigned(n){
   return (num < 0 ? '-฿ ' : '฿ ') + money(num);
 }
 
-/* ---------- multi bill / credit note rows ---------- */
 function createBillRow(initType){
   rowCounter++;
   billRows.push({ rowId: 'row' + rowCounter, type: initType || 'Bill', billNo: '', amount: '' });
@@ -832,7 +818,6 @@ function showToast(msg, isErr){
   setTimeout(() => t2.className = 'toast', 2600);
 }
 
-/* ---------- debug panel (visit the form with ?debug=1 appended to see it) ---------- */
 function renderDebugPanel(){
   if (!new URLSearchParams(window.location.search).has('debug')) return;
   const panel = el('debugPanel');
@@ -845,10 +830,11 @@ function renderDebugPanel(){
     `profile.userId: ${profile.userId || '(empty)'}\n` +
     `matchedSalesId from server: ${window.__matchedSalesId || '(none)'}\n` +
     `isFinance: ${isFinance}\n` +
+    `isGuest: ${isGuest}\n` +
+    `guestHasReceipt: ${guestHasReceipt}\n` +
     `canExportReport: ${!!window.__canExport}`;
 }
 
-/* ---------- receipt photo: read + compress client-side before upload ---------- */
 function fileToCompressedDataUrl(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -903,10 +889,6 @@ el('clearPhoto').addEventListener('click', () => {
   updatePreview();
 });
 
-/* ---------- Finance "viewing data for" switcher ---------- */
-// Populates the switcher from the salespersons list already loaded.
-// Finance accounts also get an "All salespeople" option (value "*") that
-// the Overdue tab uses to show the whole list + grand total.
 function populateViewAsSelect(){
   const sel = el('viewAsSelect');
   sel.innerHTML = '';
@@ -926,15 +908,12 @@ function populateViewAsSelect(){
 }
 
 el('viewAsSelect').addEventListener('change', (e) => {
-  // "*" (All salespeople) only changes the Overdue tab; My receipts / Totals
-  // fall back to your own data in that case.
   const sp = salespersons.find(s => s.id === e.target.value);
   viewedSalesperson = sp || selectedSalesperson;
   if (el('tabMine').style.display !== 'none') loadMyReceipts();
   if (el('tabSummary').style.display !== 'none') loadSummary();
 });
 
-/* ---------- load salesperson + customer lists ---------- */
 async function loadLists(){
   try {
     const qs = profile.userId ? `&lineUserId=${encodeURIComponent(profile.userId)}` : '';
@@ -955,7 +934,9 @@ async function loadLists(){
 
     const hint = el('identityHint');
     isFinance = !!data.isFinance;
-    window.__canExport = !!data.canExportReport;   // true ONLY for F-001 (decided by the server)
+    isGuest = !!data.isGuest;
+    guestHasReceipt = !!data.guestHasReceipt;
+    window.__canExport = !!data.canExportReport;
 
     if (data.matchedSalesId) {
       const match = salespersons.find(sp => sp.id === data.matchedSalesId);
@@ -963,7 +944,7 @@ async function loadLists(){
         sel.value = match.id;
         sel.disabled = true;
         selectedSalesperson = match;
-        viewedSalesperson = match; // default: view your own data
+        viewedSalesperson = match;
         hint.textContent = tFmt('matchedAs', { name: match.name && match.name.trim() ? match.name : match.id });
         hint.className = 'hint verified';
         hint.style.display = 'block';
@@ -998,7 +979,6 @@ el('salesperson').addEventListener('change', (e) => {
   updatePreview();
 });
 
-/* ---------- tabs ---------- */
 function switchTab(tab){
   el('tabNew').style.display = tab === 'new' ? 'block' : 'none';
   el('tabMine').style.display = tab === 'mine' ? 'block' : 'none';
@@ -1015,7 +995,6 @@ el('tabNewBtn').addEventListener('click', () => switchTab('new'));
 el('tabMineBtn').addEventListener('click', () => switchTab('mine'));
 el('tabSummaryBtn').addEventListener('click', () => switchTab('summary'));
 
-/* ---------- my receipts: load + render ---------- */
 async function loadMyReceipts(){
   const list = el('myReceiptsList');
   if (!viewedSalesperson) {
@@ -1102,7 +1081,6 @@ el('myReceiptsList').addEventListener('click', async (e) => {
   }
 });
 
-/* ---------- totals tab: load + render ---------- */
 el('summarySeg').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
@@ -1174,7 +1152,6 @@ function formatMonthLabel(yyyyMM){
   return d.toLocaleDateString(currentLang === 'th' ? 'th-TH' : 'en-US', { year: 'numeric', month: 'long' });
 }
 
-/* ---------- customer search ---------- */
 el('customerSearch').addEventListener('input', (e) => {
   const q = e.target.value.trim().toLowerCase();
   const box = el('customerResults');
@@ -1214,7 +1191,6 @@ el('clearCustomer').addEventListener('click', () => {
   updatePreview();
 });
 
-/* ---------- payment type ---------- */
 el('paymentSeg').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
@@ -1229,14 +1205,12 @@ el('paymentSeg').addEventListener('click', (e) => {
   el(id).addEventListener('change', updatePreview);
 });
 
-/* ---------- language toggle ---------- */
 el('langToggle').addEventListener('click', (e) => {
   const btn = e.target.closest('.lang-btn');
   if (!btn) return;
   applyLanguage(btn.dataset.lang);
 });
 
-/* ---------- submit ---------- */
 el('receiptForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   el('formError').className = 'error-text';
@@ -1338,7 +1312,6 @@ Object.assign(I18N.th, {
   odOfMust:'ตอบแล้ว {a} จาก {b} ราย (เกิน {n} วัน)', odNoMust:'ไม่มีรายที่ต้องตอบ', odOptional:'ตอบหรือไม่ก็ได้'
 });
 
-/* ---------- state + helpers ---------- */
 const PROBS = ['No funds', 'Disputed bill', 'Cannot contact', 'Other'];
 let odData = null, odFilter = 'needs', odQuery = '', odOpen = {}, odDraft = {}, odReq = 0, odSaving = false;
 
@@ -1349,7 +1322,6 @@ const fmtIso = s => { const p = String(s || '').split('-'); return p.length === 
 const probName = v => { const i = PROBS.indexOf(v); return i < 0 ? v : t('odp' + i); };
 const odVisible = () => el('tabOverdue').style.display !== 'none';
 
-// "today" always comes from the server so the phone's clock/timezone can never disagree with the sheet
 function base(){ const p = odData.today.split('-').map(Number); return { y: p[0], m: p[1], d: p[2] }; }
 function quickDate(k){
   const b = base();
@@ -1369,7 +1341,6 @@ function getDraft(c){
   return odDraft[c.uid];
 }
 
-/* ---------- rendering ---------- */
 function lineHtml(i){
   if (i.credit) return `<div class="od-line cn"><span><b>${esc(i.invoiceNo)}</b> · ${t('odCn')}</span><span>${formatSigned(i.amount)}</span></div>`;
   return `<div class="od-line"><span><b>${esc(i.invoiceNo)}</b> · ${t('odDue')} ${esc(i.dueDate)}<span class="od-chip ${dayClass(i.days, odData.oldDays)}">${i.days}${t('odDays')}</span></span><span>${formatSigned(i.amount)}</span></div>`;
@@ -1470,7 +1441,6 @@ function renderOverdue(){
   el('overdueList').innerHTML = html;
 }
 
-/* ---------- loading ---------- */
 async function loadOverdue(quiet){
   const box = el('overdueList');
   if (!viewedSalesperson) { if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('selectFirst')}</div>`; } return; }
@@ -1478,7 +1448,6 @@ async function loadOverdue(quiet){
   const my = ++odReq;
   if (!quiet) { el('odHero').innerHTML = ''; box.innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`; }
   try {
-    // Finance can pick "All salespeople" (value "*") in the viewer switcher
     const vid = (isFinance && el('viewAsSelect').value === '*') ? '*' : viewedSalesperson.id;
     const url = `${GAS_ENDPOINT}?action=overdue&lineUserId=${encodeURIComponent(profile.userId)}&viewSalesId=${encodeURIComponent(vid)}&_=${Date.now()}`;
     const d = await (await fetch(url, { cache: 'no-store' })).json();
@@ -1495,7 +1464,6 @@ async function loadOverdue(quiet){
   }
 }
 
-/* ---------- interaction ---------- */
 function storeInput(e){
   const card = e.target.closest('.od-card'); if (!card) return;
   const c = odData && odData.customers.find(x => x.uid === card.dataset.cid); if (!c) return;
@@ -1513,7 +1481,7 @@ el('overdueList').addEventListener('click', async (e) => {
   const c = odData.customers.find(x => x.uid === uid); if (!c) return;
 
   if (e.target.closest('.od-head')) { odOpen[uid] = !odOpen[uid]; refreshCard(uid); return; }
-  if (odData.readOnly) return;       // no forms in view-only mode (other salesperson / All)
+  if (odData.readOnly) return;
   const d = getDraft(c);
 
   const q = e.target.closest('[data-q]');
@@ -1558,9 +1526,8 @@ el('overdueList').addEventListener('click', async (e) => {
 el('odFilter').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; odFilter = b.dataset.f; renderOverdue(); });
 el('odSearch').addEventListener('input', (e) => { odQuery = e.target.value; renderOverdue(); });
 el('tabOverdueBtn').addEventListener('click', () => switchTab('overdue'));
-el('viewAsSelect').addEventListener('change', () => { if (odVisible()) loadOverdue(); });   // runs after the original handler updated viewedSalesperson
+el('viewAsSelect').addEventListener('change', () => { if (odVisible()) loadOverdue(); });
 
-/* ---------- hook into existing functions (no edits to them needed) ---------- */
 const origSwitchTab = switchTab;
 switchTab = function(tab){
   origSwitchTab(tab);
@@ -1571,11 +1538,11 @@ switchTab = function(tab){
 const origApplyLanguage = applyLanguage;
 applyLanguage = function(lang){ origApplyLanguage(lang); if (odData && odVisible()) renderOverdue(); };
 const origLoadLists = loadLists;
-loadLists = async function(){ await origLoadLists(); loadOverdue(true); };   // quietly fills the red count on the tab
+loadLists = async function(){ await origLoadLists(); loadOverdue(true); };
 })();
 
 (function(){
-/* ---------- STOP SUPPLY TAB (read-only list for everyone) ---------- */
+/* ---------- STOP SUPPLY TAB ---------- */
 Object.assign(I18N.en, {
   tabStop:'Stop supply', spSearch:'Search customer name or code', spCount:'customers on stop supply',
   spNone:'No customers on stop supply.', spNoMatch:'No matching customer.', spPaidOf:'{a} of {b} invoices paid',
@@ -1584,7 +1551,8 @@ Object.assign(I18N.en, {
   spCurrent:'On stop supply', spRemoved:'Removed', spRemovedCount:'customers removed (cleared)',
   spRemovedNone:'No customers removed yet.', spRemovedOn:'Removed {d}', spCleared:'Invoices cleared',
   spRemovedNote:'Customers taken off the list automatically after receipts cleared all their overdue invoices. Newest first.',
-  spCheque:'Cheque — not removed'
+  spCheque:'Cheque — not removed',
+  spNoReply:'{n} over-90 without reply'
 });
 Object.assign(I18N.th, {
   tabStop:'หยุดส่งสินค้า', spSearch:'ค้นหาชื่อหรือรหัสลูกค้า', spCount:'ราย อยู่ในรายการหยุดส่งสินค้า',
@@ -1594,7 +1562,8 @@ Object.assign(I18N.th, {
   spCurrent:'หยุดส่งอยู่', spRemoved:'นำออกแล้ว', spRemovedCount:'ราย ถูกนำออกจากรายการแล้ว',
   spRemovedNone:'ยังไม่มีลูกค้าที่ถูกนำออก', spRemovedOn:'นำออก {d}', spCleared:'บิลที่ชำระแล้ว',
   spRemovedNote:'ลูกค้าที่ถูกนำออกจากรายการอัตโนมัติหลังใบเสร็จครอบคลุมทุกบิลที่ค้างชำระ เรียงจากล่าสุด',
-  spCheque:'เช็ค — ยังไม่นำออก'
+  spCheque:'เช็ค — ยังไม่นำออก',
+  spNoReply:'เกิน 90 วันยังไม่ตอบ {n}'
 });
 
 let spData = null, spQuery = '', spOpen = {}, spReq = 0;
@@ -1606,9 +1575,16 @@ function spCardHtml(c){
   const h = spData.headers || [], ex = c.cells.slice(2), eh = h.slice(2);
   const n = c.invoices.length, paid = c.invoices.filter(i => i.paid).length;
   const hasCheque = c.invoices.some(i => i.cheque);
+  const split = (c.below90Total || c.above90Total)
+    ? `<span class="od-chip d1">≤90: ${formatSigned(c.below90Total || 0)}</span>` +
+      `<span class="od-chip d3">&gt;90: ${formatSigned(c.above90Total || 0)}</span>` +
+      (c.above90NoReply
+        ? `<span class="od-chip need">${tFmt('spNoReply', { n: c.above90NoReply })}</span>`
+        : '')
+    : '';
   const status = n
     ? `<span class="od-chip ${paid === n ? (hasCheque ? 'prob' : 'ok') : 'need'}">${tFmt('spPaidOf', { a: paid, b: n })}</span>` +
-      (hasCheque ? `<span class="od-chip prob">🧾 ${t('spCheque')}</span>` : '')
+      (hasCheque ? `<span class="od-chip prob">🧾 ${t('spCheque')}</span>` : '') + split
     : `<span class="od-chip d1">${t('spNoInv')}</span>`;
   let body = '';
   if (spOpen[c.customerId]) {
@@ -1725,8 +1701,8 @@ el('spView').addEventListener('click', (e) => {
   [...el('spView').children].forEach(x => x.classList.toggle('active', x === b));
   el('spHero').innerHTML = '';
   el('stopList').innerHTML = '';
-  renderStop();            // shows cached data instantly if we already have it
-  loadStop();              // and refreshes in the background
+  renderStop();
+  loadStop();
 });
 el('spSearch').addEventListener('input', (e) => { spQuery = e.target.value; renderStop(); });
 el('tabStopBtn').addEventListener('click', () => switchTab('stop'));
@@ -1736,7 +1712,7 @@ switchTab = function(tab){
   prevSwitchTab(tab);
   el('tabStop').style.display = tab === 'stop' ? 'block' : 'none';
   el('tabStopBtn').classList.toggle('active', tab === 'stop');
-  if (tab === 'stop') { el('viewAsField').style.display = 'none'; loadStop(); }   // stop list is the same for everyone
+  if (tab === 'stop') { el('viewAsField').style.display = 'none'; loadStop(); }
 };
 const prevApplyLanguage = applyLanguage;
 applyLanguage = function(lang){ prevApplyLanguage(lang); if ((spData || rmData) && spVisible()) renderStop(); };
@@ -1763,7 +1739,6 @@ async function runExport(){
     const d = await (await fetch(url, { cache: 'no-store' })).json();
     if (!d || !d.success) throw new Error((d && d.error) || t('odExpErr'));
 
-    // visible fallback link (in case the automatic open is blocked)
     msg.textContent = '';
     const a = document.createElement('a');
     a.href = d.downloadUrl; a.target = '_blank'; a.rel = 'noopener';
@@ -1771,7 +1746,6 @@ async function runExport(){
     a.style.cssText = 'color:var(--primary-dark);font-weight:600';
     msg.appendChild(a);
 
-    // auto-open: inside LINE use the external browser so the file really downloads
     if (window.liff && liff.isInClient()) liff.openWindow({ url: d.downloadUrl, external: true });
     else window.open(d.downloadUrl, '_blank');
   } catch (err) {
@@ -1783,7 +1757,6 @@ async function runExport(){
 }
 el('odXlsxBtn').addEventListener('click', runExport);
 
-// Show the button ONLY for F-001. The server decides (canExportReport) and re-checks on every export call.
 const lastLoadLists = loadLists;
 loadLists = async function(){
   await lastLoadLists();
@@ -1791,7 +1764,7 @@ loadLists = async function(){
 };
 })();
 
-/* ---------- helpers shared by the approval + stop-supply admin blocks ---------- */
+/* ---------- helpers shared by approval + stop-supply admin blocks ---------- */
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function apprChip(r){
   const a = r.approval || 'Approved';
@@ -1800,8 +1773,8 @@ function apprChip(r){
   return ` <span class="od-chip" style="${col};margin:0 0 0 6px">${t('appr' + a)}${extra}</span>`;
 }
 
-/* ---------- APPROVALS TAB (Finance only) ---------- */
 (function(){
+/* ---------- APPROVALS TAB (Finance only) ---------- */
 Object.assign(I18N.en, {
   apprTab:'Approvals', apprPending:'Pending', apprHistory:'History', apprApproved:'Approved', apprRejected:'Rejected',
   apprNone:'Nothing waiting for approval 🎉', apprHistNone:'No decisions in the last 14 days.',
@@ -1877,7 +1850,6 @@ el('apList').addEventListener('click', async e => {
     showToast(t('apprDone')); apLoad(true);
   } catch (x) { showToast(t('saveConnErr'), true); b.style.opacity = 1; }
 });
-/* tap a receipt photo -> full-screen viewer with Approve / Reject right there */
 let apLbRid = '';
 const apLbClose = () => { el('apLb').style.display = 'none'; el('apLbImg').src = ''; };
 const apCardOf = () => [...el('apList').children].find(n => n.dataset && n.dataset.rid === apLbRid);
@@ -1911,8 +1883,8 @@ loadLists = async function(){
 };
 })();
 
-/* ---------- STOP SUPPLY ADMIN: add / remove customers (Finance only) ---------- */
 (function(){
+/* ---------- STOP SUPPLY ADMIN: add / remove customers (Finance only) ---------- */
 Object.assign(I18N.en, {
   spAdd:'➕ Add customer to stop supply', spAddSearch:'Search customer to add (ID or name)',
   spAddInfo:'{n} overdue invoices · ฿{a} will be linked automatically', spAddNoInv:'No overdue invoices on record yet — add them below if needed.',
@@ -1970,6 +1942,105 @@ el('stopList').addEventListener('click', async e => {
     showToast(t('spRemovedToast')); reload();
   } catch (x) { showToast(t('saveConnErr'), true); b.disabled = false; }
 });
+})();
+
+/* ════════════════════════════════════════════════════════════════════
+   GUEST LOCK-OUT  +  FINANCE CHEQUE TAB
+   ════════════════════════════════════════════════════════════════════ */
+(function () {
+  Object.assign(I18N.en, {
+    tabCheques: 'Cheques', chqAll: 'All', chqNone: 'No cheque receipts.',
+    chqType: 'Cheque type', chqDate: 'Cheque date'
+  });
+  Object.assign(I18N.th, {
+    tabCheques: 'เช็ค', chqAll: 'ทั้งหมด', chqNone: 'ไม่มีใบเสร็จที่เป็นเช็ค',
+    chqType: 'ประเภทเช็ค', chqDate: 'วันที่เช็ค'
+  });
+
+  function applyGuestLockout() {
+    if (!isGuest) return;
+    ['tabNewBtn','tabMineBtn','tabSummaryBtn','tabOverdueBtn','tabStopBtn','tabApprBtn','tabChequesBtn']
+      .forEach(id => { const b = el(id); if (b) b.style.display = 'none'; });
+    el('viewAsField').style.display = 'none';
+
+    if (!guestHasReceipt) {
+      el('tabNewBtn').style.display = '';
+      el('submitBar').style.display = 'block';
+      switchTab('new');
+    } else {
+      el('tabStopBtn').style.display = '';
+      el('submitBar').style.display = 'none';
+      switchTab('stop');
+    }
+  }
+
+  let chqData = [], chqFilter = 'all';
+
+  async function loadCheques() {
+    if (!isFinance || !profile.userId) return;
+    el('chequeList').innerHTML = `<div class="empty-state">${t('mineLoading')}</div>`;
+    try {
+      const d = await (await fetch(
+        `${GAS_ENDPOINT}?action=cheques&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`,
+        { cache: 'no-store' })).json();
+      if (d.error) throw new Error(d.error);
+      chqData = d.cheques || [];
+      renderCheques();
+    } catch (err) {
+      el('chequeList').innerHTML = `<div class="empty-state">${t('mineLoadError')}</div>`;
+    }
+  }
+
+  function renderCheques() {
+    let list = chqData;
+    if (chqFilter === 'pending') list = list.filter(c => c.approval === 'Pending');
+    else if (chqFilter === 'approved') list = list.filter(c => c.approval === 'Approved');
+    if (!list.length) {
+      el('chequeList').innerHTML = `<div class="empty-state">${t('chqNone')}</div>`;
+      return;
+    }
+    el('chequeList').innerHTML = list.map(c => `
+      <div class="mr-card">
+        <div class="mr-head">
+          <div>
+            <div class="mr-date">${escH(c.date)} · 👤 ${escH(c.salesName || c.salesId)}</div>
+            <div class="mr-customer">${escH(c.customerName)}</div>
+          </div>
+          <div class="mr-total">${formatSigned(c.total)}</div>
+        </div>
+        <div class="mr-bills">${c.bills.map(b =>
+          `<div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : t('bill')} ${escH(b.billNo)}</span><span>${formatSigned(b.amount)}</span></div>`
+        ).join('')}</div>
+        <div class="mr-foot">
+          <span class="mr-status">🧾 ${escH(c.chequeType)} · ${escH(c.chequeDate)}</span>
+          ${apprChip({ approval: c.approval, reviewNote: '' })}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  el('chqFilter').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    chqFilter = b.dataset.f;
+    [...el('chqFilter').children].forEach(x => x.classList.toggle('active', x === b));
+    renderCheques();
+  });
+  el('tabChequesBtn').addEventListener('click', () => switchTab('cheques'));
+
+  const prevSwitchTab = switchTab;
+  switchTab = function (tab) {
+    prevSwitchTab(tab);
+    el('tabCheques').style.display = tab === 'cheques' ? 'block' : 'none';
+    el('tabChequesBtn').classList.toggle('active', tab === 'cheques');
+    if (tab === 'cheques') { el('viewAsField').style.display = 'none'; loadCheques(); }
+  };
+
+  const prevLoadLists = loadLists;
+  loadLists = async function () {
+    await prevLoadLists();
+    el('tabChequesBtn').style.display = (isFinance && !isGuest) ? '' : 'none';
+    applyGuestLockout();
+  };
 })();
 
 /* ---------- init ---------- */
