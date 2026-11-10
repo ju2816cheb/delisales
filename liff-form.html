@@ -764,7 +764,7 @@ function lineLabel(b){
 function lineHtml_(b){
   const isNote = b.type === 'Note';
   let main = lineLabel(b) + (isNote && b.noteCustomer ? ' · ' + escH(b.noteCustomer) : '');
-  const cust = (!isNote || (b.customerId && b.customerId !== 'NOTE')) ? (b.customerName || '') : '';
+  const cust = (!isNote || (b.customerId && b.customerId !== 'OTHER' && b.customerId !== 'NOTE')) ? (b.customerName || '') : '';
   const sub = [cust ? escH(cust) : '', isNote && b.noteText ? escH(b.noteText) : ''].filter(Boolean).join(' — ');
   return main + (sub ? `<span class="mr-sub">${sub}</span>` : '');
 }
@@ -962,8 +962,8 @@ function getSignedBills(){
         type: r.type,
         billNo: isNote ? '' : r.billNo.trim(),
         amount: signed,
-        // every line carries its own customer. A Note with no listed customer uses id "NOTE" + the typed name.
-        customerId: c ? c.id : (isNote ? 'NOTE' : ''),
+        // every line carries its own customer. A Note with no listed customer uses id "OTHER" (the id Code.gs already skips in the Overdue Report) + the typed name.
+        customerId: c ? c.id : (isNote ? 'OTHER' : ''),
         customerName: c ? c.name : (isNote ? r.noteCustomer.trim() : ''),
         noteCustomer: isNote ? r.noteCustomer.trim() : '',
         noteText: isNote ? r.noteText.trim() : ''
