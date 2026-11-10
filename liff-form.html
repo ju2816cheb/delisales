@@ -65,7 +65,7 @@
   .bubble .bl{ font-size:14px; line-height:1.65; }
   .bubble .bl b{ font-weight:600; }
   .bubble .empty{ opacity:.85; font-size:13.5px; }
-  .bubble .bill-line{ display:flex; justify-content:space-between; gap:10px; }
+  .bubble .bill-line{ display:flex; justify-content:space-between; gap:10px; margin-bottom:4px; }
   .bubble .bill-line .cn{ opacity:.9; }
   .bubble .divider{ height:1px; background:rgba(255,255,255,.3); margin:8px 0; }
   .bubble .amt{ font-size:20px; font-weight:700; margin-top:4px; }
@@ -149,21 +149,22 @@
   .cheque-panel.show{ display:block; }
   .cheque-panel label{ color:#7A5800; }
 
-  /* --- Multi bill / credit note rows --- */
+  /* --- Multi invoice / credit note / note rows --- */
   #billRows{ margin-bottom:10px; }
   .bill-row{
     border:1.5px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px;
   }
   .bill-row:last-child{ margin-bottom:0; }
-  .bill-row-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .bill-type-toggle{ display:flex; gap:6px; }
+  .bill-row-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+  .bill-type-toggle{ display:flex; gap:6px; flex-wrap:wrap; }
   .bt-btn{
-    padding:6px 12px; border-radius:8px; border:1.5px solid var(--border); background:#fff;
+    padding:6px 10px; border-radius:8px; border:1.5px solid var(--border); background:#fff;
     font-family:inherit; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
   }
   .bt-btn.active{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
   .bt-btn.credit.active{ border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }
-  .remove-row{ font-size:12.5px; color:var(--danger); font-weight:600; cursor:pointer; padding:4px 2px; }
+  .bt-btn.note.active{ border-color:var(--amber); background:var(--amber-bg); color:var(--amber); }
+  .remove-row{ font-size:12.5px; color:var(--danger); font-weight:600; cursor:pointer; padding:4px 2px; flex-shrink:0; }
   .bill-row-fields{ display:flex; gap:8px; }
   .bill-row-fields .bill-no{ flex:1.3; }
   .bill-row-fields .amount-prefix{ flex:1; margin:0; }
@@ -180,17 +181,50 @@
   .bills-total .val{ font-size:16px; color:var(--ink); }
   .bills-total .val.neg{ color:var(--danger); }
 
-  /* --- Receipt photo picker --- */
+  /* per-line customer */
+  .row-cust-wrap{ margin-bottom:8px; }
+  .row-cust-lbl{ font-size:12px; color:var(--ink-soft); margin-bottom:5px; }
+  .row-cust{
+    padding:10px 12px; background:var(--primary-bg); border-radius:10px; font-size:13.5px;
+    display:flex; align-items:center; justify-content:space-between; gap:10px; word-break:break-word;
+  }
+  .row-cust .clear{ color:var(--primary-dark); font-weight:600; cursor:pointer; flex-shrink:0; }
+  .bill-row input.row-cust-search, .bill-row input.note-cust{ font-size:15px; padding:11px 12px; }
+  .bill-row .note-cust{ margin-bottom:8px; }
+  .bill-row textarea.note-text{
+    width:100%; font-size:15px; font-family:inherit; padding:11px 12px; border:1.5px solid var(--border);
+    border-radius:10px; min-height:64px; resize:vertical; color:var(--ink); margin-top:8px;
+  }
+  .bill-row textarea.note-text:focus{ outline:none; border-color:var(--primary); }
+
+  /* open invoices picker */
+  .row-open:empty{ display:none; }
+  .open-inv{ margin-bottom:8px; }
+  .oi-pills{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+  .oi-pill{
+    padding:7px 10px; border-radius:18px; border:1.5px solid var(--border); background:#fff;
+    font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-soft); cursor:pointer; text-align:left;
+  }
+  .oi-pill.on{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
+  .oi-pill.cr{ color:var(--danger); }
+  .row-open .hint{ margin:0 0 4px; }
+
+  /* --- Receipt photo picker (up to 10) --- */
   .photo-btn-row{ display:flex; gap:8px; }
   .photo-btn{
     flex:1; width:100%; padding:13px 8px; border:1.5px dashed var(--border); border-radius:10px;
     background:#FFF9F9; color:var(--ink-soft); font-family:inherit; font-size:13.5px; font-weight:600;
     cursor:pointer;
   }
-  .photo-preview{ display:none; align-items:center; gap:12px; margin-top:4px; }
-  .photo-preview.show{ display:flex; }
-  .photo-preview img{ width:64px; height:64px; object-fit:cover; border-radius:10px; border:1px solid var(--border); }
-  .photo-preview .clear{ color:var(--danger); font-weight:600; font-size:13.5px; cursor:pointer; }
+  .photo-grid{ display:none; grid-template-columns:repeat(auto-fill,minmax(76px,1fr)); gap:8px; margin:0 0 10px; }
+  .photo-grid.show{ display:grid; }
+  .photo-grid .ph{ position:relative; }
+  .photo-grid .ph img{ width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:10px; border:1px solid var(--border); display:block; }
+  .photo-grid .ph-x{
+    position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%;
+    background:rgba(26,26,26,.75); color:#fff; font-size:12px; line-height:22px; text-align:center; cursor:pointer;
+  }
+  .photo-count{ font-size:12px; color:var(--ink-soft); font-weight:600; margin-left:6px; }
 
   .amount-prefix{ position:relative; }
   .amount-prefix span{ position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:16px; }
@@ -240,8 +274,9 @@
   .mr-total{ font-size:16px; font-weight:700; white-space:nowrap; }
   .mr-total.neg{ color:var(--danger); }
   .mr-bills{ border-top:1px dashed var(--border); padding-top:8px; margin-top:4px; }
-  .mr-bill-line{ display:flex; justify-content:space-between; font-size:13px; color:var(--ink-soft); padding:2px 0; }
+  .mr-bill-line{ display:flex; justify-content:space-between; gap:10px; font-size:13px; color:var(--ink-soft); padding:2px 0; }
   .mr-bill-line span.neg{ color:var(--danger); }
+  .mr-sub{ display:block; font-size:11.5px; opacity:.85; word-break:break-word; }
   .mr-foot{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
   .mr-status{ font-size:12px; font-weight:600; color:var(--ink-soft); }
   .mr-card.voided .mr-status{ color:var(--danger); }
@@ -331,10 +366,15 @@
 .rq-rej{display:none;margin-top:10px}
 .rq-rej input{width:100%;font-size:16px;font-family:inherit;padding:11px 12px;border:1.5px solid var(--border);border-radius:10px;color:var(--ink)}
 .ap-note{margin-top:0}
-.ap-thumb{display:block;width:100%;max-height:230px;object-fit:cover;border-radius:10px;border:1px solid var(--border);margin:8px 0;cursor:zoom-in;background:#f6f2f2}
+.ap-thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin:8px 0}
+.ap-thumbs.one{grid-template-columns:1fr}
+.ap-thumb{display:block;width:100%;max-height:150px;object-fit:cover;border-radius:10px;border:1px solid var(--border);margin:0;cursor:zoom-in;background:#f6f2f2}
+.ap-thumbs.one .ap-thumb{max-height:230px}
 #apLb{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:60;display:none;flex-direction:column}
-#apLb .lb-top{display:flex;justify-content:space-between;padding:12px 16px;color:#fff;font-size:14px}
+#apLb .lb-top{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#fff;font-size:14px}
 #apLb .lb-top a,#apLb .lb-top span{color:#fff;font-weight:600;cursor:pointer}
+#apLb .lb-nav{display:flex;align-items:center;gap:14px;font-size:18px}
+#apLb .lb-nav #apLbCount{font-size:13px;cursor:default}
 #apLb .lb-img{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;overflow:auto}
 #apLb img{max-width:100%;max-height:100%;object-fit:contain}
 #apLb .lb-acts{display:flex;gap:10px;padding:14px 16px 22px}
@@ -390,30 +430,18 @@
         <div class="hint" id="identityHint" style="display:none;"></div>
       </div>
 
-      <div class="field">
+      <div class="field" style="margin-bottom:0;">
         <label><span data-i18n="paymentDate">Payment date</span> <span class="req">*</span></label>
         <input type="date" id="paymentDate" required />
         <div class="hint" data-i18n="paymentDateHint">Defaults to today — change if logging a past receipt.</div>
-      </div>
-
-      <div class="field">
-        <label><span data-i18n="customer">Customer</span> <span class="req">*</span></label>
-        <div class="search-box">
-          <input type="text" id="customerSearch" data-i18n-placeholder="customerPlaceholder" placeholder="Search by customer ID or name" autocomplete="off" />
-          <div class="results" id="customerResults"></div>
-        </div>
-        <div class="selected-customer" id="selectedCustomer">
-          <span id="selectedCustomerText"></span>
-          <span class="clear" id="clearCustomer" data-i18n="change">Change</span>
-        </div>
       </div>
     </div>
 
     <div class="card">
       <div class="field" style="margin-bottom:0;">
-        <label><span data-i18n="bills">Bills</span> <span class="req">*</span></label>
+        <label><span data-i18n="bills">Invoices</span> <span class="req">*</span></label>
         <div id="billRows"></div>
-        <button type="button" class="add-bill-btn" id="addBillBtn" data-i18n="addBill">+ Add another bill</button>
+        <button type="button" class="add-bill-btn" id="addBillBtn" data-i18n="addBill">+ Add another line</button>
         <div class="hint" id="billsHintText"></div>
         <div class="bills-total">
           <span data-i18n="total">Total</span>
@@ -446,16 +474,13 @@
 
     <div class="card">
       <div class="field" style="margin-bottom:0;">
-        <label><span data-i18n="receiptImage">Receipt image</span> <span class="req">*</span></label>
+        <label><span data-i18n="receiptImage">Receipt photos</span> <span class="req">*</span><span class="photo-count" id="photoCount"></span></label>
         <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" style="display:none;" />
-        <input type="file" id="receiptGalleryInput" accept="image/*" style="display:none;" />
+        <input type="file" id="receiptGalleryInput" accept="image/*" multiple style="display:none;" />
+        <div class="photo-grid" id="photoPreview"></div>
         <div class="photo-btn-row" id="photoBtnRow">
           <button type="button" class="photo-btn" id="cameraBtn" data-i18n="takePhoto">📷 Take photo</button>
           <button type="button" class="photo-btn" id="galleryBtn" data-i18n="chooseGallery">🖼️ Choose from gallery</button>
-        </div>
-        <div class="photo-preview" id="photoPreview">
-          <img id="photoThumb" alt="Receipt photo preview" />
-          <span class="clear" id="clearPhoto" data-i18n="removePhoto">Remove</span>
         </div>
       </div>
     </div>
@@ -546,7 +571,7 @@
      so el('apLbClose') was null when the Approvals code ran, which threw an error and stopped
      the rest of the page (including init()) from running. -->
 <div id="apLb">
-  <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span id="apLbClose">✕</span></div>
+  <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span class="lb-nav"><span id="apLbPrev">‹</span><span id="apLbCount"></span><span id="apLbNext">›</span></span><span id="apLbClose">✕</span></div>
   <div class="lb-img"><img id="apLbImg" alt="" /></div>
   <div class="lb-acts" id="apLbActs">
     <button type="button" id="apLbOk" style="background:#1F7A4D">✅</button>
@@ -558,6 +583,7 @@
 /* ====================== CONFIG ====================== */
 const LIFF_ID = "2011154066-sbzdMqVz";
 const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbySYY8nPbtar025yHlMoQ0wWRIeL1HpDnGnKt1K8dnmCtkpD7zapkQd2gx08dFrMhnlrg/exec";
+const MAX_PHOTOS = 10;   // must match MAX_RECEIPT_IMAGES in Code.gs
 /* ==================================================== */
 
 /* ---------- i18n: Thai / English ---------- */
@@ -570,15 +596,20 @@ const I18N = {
     salesperson: 'Sales person', salespersonPlaceholder: 'Select sales person',
     paymentDate: 'Payment date', paymentDateHint: 'Defaults to today — change if logging a past receipt.',
     customer: 'Customer', customerPlaceholder: 'Search by customer ID or name', change: 'Change',
-    bills: 'Bills', addBill: '+ Add another bill',
-    billsHint: 'Add one row per bill if the customer is paying for more than one invoice. Use <b>Credit Note</b> to deduct from the total — it\'s recorded as a negative amount.',
-    total: 'Total', billNoPlaceholder: 'Bill / invoice no.',
-    bill: 'Bill', creditNote: 'Credit Note', remove: 'Remove',
+    bills: 'Invoices', addBill: '+ Add another line',
+    billsHint: 'Add one line per invoice. Every line has its own customer, so one receipt can cover several customers. Use <b>Credit Note</b> to deduct from the total (recorded as a negative amount) or <b>Note</b> to add a free-text comment line.',
+    total: 'Total', billNoPlaceholder: 'Invoice no.',
+    bill: 'Invoice', creditNote: 'Credit Note', note: 'Note', remove: 'Remove',
+    noteCustPh: 'Customer name', noteTextPh: 'Comment (what is this for?)',
+    noteCustOpt: 'Link to a listed customer (optional)',
+    openInvTitle: 'Open invoices — tap to fill in', openInvLoading: 'Checking open invoices…',
+    openInvNone: 'No open invoices on record — type the number below.',
     paymentType: 'Payment type', cash: 'Cash', transfer: 'Transfer', cheque: 'Cheque',
     chequeType: 'Cheque type', chequeTypePlaceholder: 'Cheque No.', chequeDate: 'Cheque date',
-    receiptImage: 'Receipt image', takePhoto: '📷 Take photo', chooseGallery: '🖼️ Choose from gallery', removePhoto: 'Remove',
+    receiptImage: 'Receipt photos (up to 10)', takePhoto: '📷 Take photo', chooseGallery: '🖼️ Choose from gallery', removePhoto: 'Remove',
+    photoMax: 'You can add at most {n} photos per receipt.',
     saveReceipt: 'Save receipt', saving: 'Saving…',
-    formErrorDefault: 'Please complete all required fields.', formErrorPhoto: 'A receipt photo is required.',
+    formErrorDefault: 'Please complete all required fields.', formErrorPhoto: 'At least one receipt photo is required.',
     mineHint: 'Your receipts from the last 7 days. Delete a mistaken entry, then log the corrected one.',
     mineEmpty: 'No receipts logged in the last 7 days.', mineLoading: 'Loading…',
     mineLoadError: 'Could not load your receipts — check your connection.',
@@ -610,15 +641,20 @@ const I18N = {
     salesperson: 'Sales', salespersonPlaceholder: 'เลือกSales',
     paymentDate: 'วันที่ชำระเงิน', paymentDateHint: 'ค่าเริ่มต้นคือวันนี้ — เปลี่ยนได้หากบันทึกย้อนหลัง',
     customer: 'ลูกค้า', customerPlaceholder: 'ค้นหาด้วยรหัสหรือชื่อลูกค้า', change: 'เปลี่ยน',
-    bills: 'บิล', addBill: '+ เพิ่มบิลอีกรายการ',
-    billsHint: 'เพิ่มหนึ่งแถวต่อหนึ่งบิล หากลูกค้าชำระมากกว่าหนึ่งใบแจ้งหนี้ ใช้ <b>ใบลดหนี้</b> เพื่อหักออกจากยอดรวม — จะถูกบันทึกเป็นจำนวนติดลบ',
-    total: 'ยอดรวม', billNoPlaceholder: 'เลขที่บิล / ใบแจ้งหนี้',
-    bill: 'บิล', creditNote: 'ใบลดหนี้', remove: 'ลบ',
+    bills: 'ใบแจ้งหนี้', addBill: '+ เพิ่มรายการอีกรายการ',
+    billsHint: 'เพิ่มหนึ่งรายการต่อหนึ่งใบแจ้งหนี้ แต่ละรายการเลือกลูกค้าได้เอง ใบเสร็จเดียวจึงครอบคลุมหลายลูกค้าได้ ใช้ <b>ใบลดหนี้</b> เพื่อหักออกจากยอดรวม (บันทึกเป็นจำนวนติดลบ) หรือ <b>หมายเหตุ</b> เพื่อเพิ่มรายการข้อความอิสระ',
+    total: 'ยอดรวม', billNoPlaceholder: 'เลขที่ใบแจ้งหนี้',
+    bill: 'ใบแจ้งหนี้', creditNote: 'ใบลดหนี้', note: 'หมายเหตุ', remove: 'ลบ',
+    noteCustPh: 'ชื่อลูกค้า', noteTextPh: 'ความเห็น (เกี่ยวกับอะไร?)',
+    noteCustOpt: 'เชื่อมกับลูกค้าในรายชื่อ (ไม่บังคับ)',
+    openInvTitle: 'ใบแจ้งหนี้ที่ค้างอยู่ — แตะเพื่อกรอกให้อัตโนมัติ', openInvLoading: 'กำลังตรวจสอบใบแจ้งหนี้ค้างชำระ…',
+    openInvNone: 'ไม่พบใบแจ้งหนี้ค้างชำระ — พิมพ์เลขที่ด้านล่างได้เลย',
     paymentType: 'ประเภทการชำระเงิน', cash: 'เงินสด', transfer: 'โอนเงิน', cheque: 'เช็ค',
     chequeType: 'ประเภทเช็ค', chequeTypePlaceholder: 'Cheque No.', chequeDate: 'วันที่เช็ค',
-    receiptImage: 'รูปใบเสร็จ', takePhoto: '📷 ถ่ายรูป', chooseGallery: '🖼️ เลือกจากคลังภาพ', removePhoto: 'ลบ',
+    receiptImage: 'รูปใบเสร็จ (สูงสุด 10 รูป)', takePhoto: '📷 ถ่ายรูป', chooseGallery: '🖼️ เลือกจากคลังภาพ', removePhoto: 'ลบ',
+    photoMax: 'แนบรูปได้สูงสุด {n} รูปต่อใบเสร็จ',
     saveReceipt: 'บันทึกใบเสร็จ', saving: 'กำลังบันทึก…',
-    formErrorDefault: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', formErrorPhoto: 'ต้องแนบรูปใบเสร็จ',
+    formErrorDefault: 'กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน', formErrorPhoto: 'ต้องแนบรูปใบเสร็จอย่างน้อย 1 รูป',
     mineHint: 'ใบเสร็จของคุณใน 7 วันที่ผ่านมา ลบรายการที่ผิดพลาด แล้วบันทึกรายการที่ถูกต้องใหม่',
     mineEmpty: 'ไม่มีใบเสร็จที่บันทึกใน 7 วันที่ผ่านมา', mineLoading: 'กำลังโหลด…',
     mineLoadError: 'ไม่สามารถโหลดใบเสร็จของคุณได้ — ตรวจสอบการเชื่อมต่อ',
@@ -689,7 +725,6 @@ function el(id){ return document.getElementById(id); }
 
 let customers = [];
 let salespersons = [];
-let selectedCustomer = null;
 let selectedSalesperson = null;  // who this LINE account is registered as — always the identity used for filing/void
 let isGuest = false, guestHasReceipt = false;   // guest ("G-") accounts: upload one test receipt, then only the stop-supply list
 let canApproveStop = false;      // true ONLY for the stop-supply approver (F-002) — the server decides and re-checks
@@ -697,13 +732,14 @@ let stopApprover = { id: 'F-002', name: 'F-002' };
 let isFinance = false;           // true when the logged-in identity's Sales ID starts with "F-"
 let viewedSalesperson = null;    // whose My receipts / Totals / Overdue are currently shown; Finance accounts can change this
 let paymentType = null;
-let receiptImageDataUrl = null;
+let receiptImages = [];          // up to MAX_PHOTOS compressed data-URLs
 let profile = { userId: "", displayName: "" };
 
 let liffStatus = { sdkPresent: false, initOk: false, isInClient: false, error: null };
 
 let billRows = [];
 let rowCounter = 0;
+let openInv = {};                // customerId -> { state:'loading'|'ok', list:[...] }  (from ?action=openInvoices)
 let myReceiptsCache = [];
 let summaryGroupBy = 'month';
 let summaryCache = [];
@@ -719,10 +755,29 @@ function formatSigned(n){
   return (num < 0 ? '-฿ ' : '฿ ') + money(num);
 }
 
-/* ---------- multi bill / credit note rows ---------- */
+/* label for one receipt line: "Invoice 123" / "CN 123" / "Note" */
+function lineLabel(b){
+  if (b.type === 'Note') return t('note');
+  return (b.type === 'Credit Note' ? 'CN' : t('bill')) + ' ' + escH(b.billNo);
+}
+/* left side of a receipt line in My receipts / Approvals: label + customer (+ note text) */
+function lineHtml_(b){
+  const isNote = b.type === 'Note';
+  let main = lineLabel(b) + (isNote && b.noteCustomer ? ' · ' + escH(b.noteCustomer) : '');
+  const cust = (!isNote || (b.customerId && b.customerId !== 'NOTE')) ? (b.customerName || '') : '';
+  const sub = [cust ? escH(cust) : '', isNote && b.noteText ? escH(b.noteText) : ''].filter(Boolean).join(' — ');
+  return main + (sub ? `<span class="mr-sub">${sub}</span>` : '');
+}
+
+/* ---------- multi line rows: invoice / credit note / note — each with its own customer ---------- */
 function createBillRow(initType){
   rowCounter++;
-  billRows.push({ rowId: 'row' + rowCounter, type: initType || 'Bill', billNo: '', amount: '' });
+  const prev = billRows.length ? billRows[billRows.length - 1] : null;
+  billRows.push({
+    rowId: 'row' + rowCounter, type: initType || 'Invoice',
+    customer: prev && prev.customer ? prev.customer : null,   // new line starts with the previous line's customer (change it if needed)
+    search: '', billNo: '', amount: '', noteCustomer: '', noteText: ''
+  });
   renderBillRows();
 }
 
@@ -732,28 +787,109 @@ function removeBillRow(rowId){
   renderBillRows();
 }
 
+function customerBlockHtml(r){
+  const lbl = r.type === 'Note' ? t('noteCustOpt') : t('customer');
+  if (r.customer) {
+    return `<div class="row-cust-wrap"><div class="row-cust-lbl">${lbl}</div>
+      <div class="row-cust"><span>${escH(r.customer.id)} — ${escH(r.customer.name)}</span><span class="clear" data-action="clearCust">${t('change')}</span></div></div>`;
+  }
+  return `<div class="row-cust-wrap"><div class="row-cust-lbl">${lbl}</div>
+      <div class="search-box"><input type="text" class="row-cust-search" placeholder="${escH(t('customerPlaceholder'))}" value="${escH(r.search)}" autocomplete="off" />
+      <div class="results row-results"></div></div></div>`;
+}
+
+function openInvHtml(r){
+  if (r.type === 'Note' || !r.customer) return '';
+  const s = openInv[r.customer.id];
+  if (!s) return '';
+  if (s.state === 'loading') return `<div class="hint">${t('openInvLoading')}</div>`;
+  const used = {};
+  billRows.forEach(x => { if (x !== r && x.customer && x.customer.id === r.customer.id && x.billNo.trim()) used[x.billNo.trim()] = 1; });
+  const list = s.list.filter(i => !used[i.invoiceNo]);
+  if (!list.length) return `<div class="hint">${t('openInvNone')}</div>`;
+  return `<div class="open-inv"><div class="hint">${t('openInvTitle')}</div><div class="oi-pills">` +
+    list.map(i => `<button type="button" class="oi-pill ${i.credit ? 'cr' : ''} ${r.billNo.trim() === i.invoiceNo ? 'on' : ''}" data-inv="${escH(i.invoiceNo)}">` +
+      `${escH(i.invoiceNo)} · ${i.days}${t('odDays')} · ${i.credit ? '-' : ''}฿${money(i.remaining)}${i.partial ? ' (' + t('spPartial') + ')' : ''}</button>`).join('') +
+    `</div></div>`;
+}
+
+/* refresh only the open-invoice strips (never touches the inputs, so typing is not interrupted) */
+function refreshOpenInv(){
+  document.querySelectorAll('#billRows .bill-row').forEach(node => {
+    const r = billRows.find(x => x.rowId === node.dataset.rowId);
+    const box = node.querySelector('.row-open');
+    if (r && box) box.innerHTML = openInvHtml(r);
+  });
+}
+
+async function loadOpenInv(cid){
+  if (!cid) return;
+  if (openInv[cid]) { refreshOpenInv(); return; }
+  if (!profile.userId) return;
+  openInv[cid] = { state: 'loading', list: [] };
+  refreshOpenInv();
+  try {
+    const url = `${GAS_ENDPOINT}?action=openInvoices&lineUserId=${encodeURIComponent(profile.userId)}&customerId=${encodeURIComponent(cid)}&_=${Date.now()}`;
+    const d = await (await fetch(url, { cache: 'no-store' })).json();
+    if (d && Array.isArray(d.invoices)) openInv[cid] = { state: 'ok', list: d.invoices };
+    else delete openInv[cid];
+  } catch (err) { delete openInv[cid]; }
+  refreshOpenInv();
+}
+
 function renderBillRows(){
   const container = el('billRows');
   if (!container) return;
-  container.innerHTML = billRows.map(r => `
+  container.innerHTML = billRows.map(r => {
+    const isNote = r.type === 'Note';
+    const fields = isNote ? `
+      <input type="text" class="note-cust" placeholder="${escH(t('noteCustPh'))}" value="${escH(r.noteCustomer)}" />
+      <div class="bill-row-fields">
+        <div class="amount-prefix small"><span>฿</span>
+          <input type="number" class="bill-amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${escH(r.amount)}" /></div>
+      </div>
+      <textarea class="note-text" placeholder="${escH(t('noteTextPh'))}">${escH(r.noteText)}</textarea>` : `
+      <div class="bill-row-fields">
+        <input type="text" class="bill-no" placeholder="${escH(t('billNoPlaceholder'))}" value="${escH(r.billNo)}" />
+        <div class="amount-prefix small">
+          <span>฿</span>
+          <input type="number" class="bill-amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${escH(r.amount)}" />
+        </div>
+      </div>`;
+    return `
     <div class="bill-row" data-row-id="${r.rowId}">
       <div class="bill-row-head">
         <div class="bill-type-toggle">
-          <button type="button" class="bt-btn ${r.type === 'Bill' ? 'active' : ''}" data-type="Bill">${t('bill')}</button>
+          <button type="button" class="bt-btn ${r.type === 'Invoice' ? 'active' : ''}" data-type="Invoice">${t('bill')}</button>
           <button type="button" class="bt-btn credit ${r.type === 'Credit Note' ? 'active' : ''}" data-type="Credit Note">${t('creditNote')}</button>
+          <button type="button" class="bt-btn note ${isNote ? 'active' : ''}" data-type="Note">${t('note')}</button>
         </div>
         ${billRows.length > 1 ? `<span class="remove-row" data-action="remove">${t('remove')}</span>` : ''}
       </div>
-      <div class="bill-row-fields">
-        <input type="text" class="bill-no" placeholder="${t('billNoPlaceholder')}" value="${r.billNo.replace(/"/g,'&quot;')}" />
-        <div class="amount-prefix small">
-          <span>฿</span>
-          <input type="number" class="bill-amount" inputmode="decimal" min="0" step="0.01" placeholder="0.00" value="${r.amount}" />
-        </div>
-      </div>
-    </div>
-  `).join('');
+      ${customerBlockHtml(r)}
+      <div class="row-open">${openInvHtml(r)}</div>
+      ${fields}
+    </div>`;
+  }).join('');
   updatePreview();
+}
+
+function showRowResults(node, data){
+  const box = node.querySelector('.row-results');
+  if (!box) return;
+  const q = data.search.trim().toLowerCase();
+  if (!q) { box.className = 'results row-results'; box.innerHTML = ''; return; }
+  const matches = customers.filter(c =>
+    String(c.id).toLowerCase().includes(q) || String(c.name).toLowerCase().includes(q)
+  ).slice(0, 20);
+  box.innerHTML = matches.length
+    ? matches.map(c => `
+        <div class="result-item" data-id="${escH(c.id)}" data-name="${escH(c.name)}">
+          <div class="id">${escH(c.id)}</div>
+          <div class="name">${escH(c.name)}</div>
+        </div>`).join('')
+    : `<div class="no-results">${t('noMatchingCustomer')}</div>`;
+  box.className = 'results row-results open';
 }
 
 el('billRows').addEventListener('click', (e) => {
@@ -762,13 +898,36 @@ el('billRows').addEventListener('click', (e) => {
   const data = billRows.find(r => r.rowId === row.dataset.rowId);
   if (!data) return;
 
-  if (e.target.classList.contains('bt-btn')) {
-    data.type = e.target.dataset.type;
+  const typeBtn = e.target.closest('.bt-btn');
+  if (typeBtn) { data.type = typeBtn.dataset.type; renderBillRows(); return; }
+
+  if (e.target.closest('[data-action="remove"]')) { removeBillRow(row.dataset.rowId); return; }
+
+  if (e.target.closest('[data-action="clearCust"]')) {
+    data.customer = null; data.search = '';
     renderBillRows();
     return;
   }
-  if (e.target.dataset.action === 'remove') {
-    removeBillRow(row.dataset.rowId);
+
+  const item = e.target.closest('.result-item');
+  if (item && item.dataset.id) {
+    data.customer = { id: item.dataset.id, name: item.dataset.name };
+    data.search = '';
+    renderBillRows();
+    loadOpenInv(data.customer.id);
+    return;
+  }
+
+  const pill = e.target.closest('.oi-pill');
+  if (pill && data.customer) {
+    const s = openInv[data.customer.id];
+    const inv = s && s.list.find(i => i.invoiceNo === pill.dataset.inv);
+    if (inv) {
+      data.type = inv.credit ? 'Credit Note' : 'Invoice';
+      data.billNo = inv.invoiceNo;
+      data.amount = String(Math.round(Math.abs(inv.remaining) * 100) / 100);
+      renderBillRows();
+    }
   }
 });
 
@@ -777,20 +936,38 @@ el('billRows').addEventListener('input', (e) => {
   if (!row) return;
   const data = billRows.find(r => r.rowId === row.dataset.rowId);
   if (!data) return;
-  if (e.target.classList.contains('bill-no')) data.billNo = e.target.value;
+  if (e.target.classList.contains('row-cust-search')) { data.search = e.target.value; showRowResults(row, data); return; }
+  if (e.target.classList.contains('bill-no')) { data.billNo = e.target.value; refreshOpenInv(); }
   if (e.target.classList.contains('bill-amount')) data.amount = e.target.value;
+  if (e.target.classList.contains('note-cust')) data.noteCustomer = e.target.value;
+  if (e.target.classList.contains('note-text')) data.noteText = e.target.value;
   updatePreview();
 });
 
-el('addBillBtn').addEventListener('click', () => createBillRow());
+el('addBillBtn').addEventListener('click', () => {
+  createBillRow();
+  const last = billRows[billRows.length - 1];
+  if (last && last.customer) loadOpenInv(last.customer.id);
+});
 
 function getSignedBills(){
   return billRows
-    .filter(r => r.billNo.trim() || r.amount)
+    .filter(r => r.billNo.trim() || r.amount || r.noteCustomer.trim() || r.noteText.trim() || r.customer)
     .map(r => {
+      const isNote = r.type === 'Note';
       const raw = Math.abs(parseFloat(r.amount) || 0);
       const signed = r.type === 'Credit Note' ? -raw : raw;
-      return { type: r.type, billNo: r.billNo.trim(), amount: signed };
+      const c = r.customer;
+      return {
+        type: r.type,
+        billNo: isNote ? '' : r.billNo.trim(),
+        amount: signed,
+        // every line carries its own customer. A Note with no listed customer uses id "NOTE" + the typed name.
+        customerId: c ? c.id : (isNote ? 'NOTE' : ''),
+        customerName: c ? c.name : (isNote ? r.noteCustomer.trim() : ''),
+        noteCustomer: isNote ? r.noteCustomer.trim() : '',
+        noteText: isNote ? r.noteText.trim() : ''
+      };
     });
 }
 
@@ -803,19 +980,18 @@ function updatePreview(){
   const chequeType = el('chequeType').value.trim();
   const chequeDate = el('chequeDate').value;
 
-  if (!selectedSalesperson && !selectedCustomer && bills.length === 0) {
+  if (!selectedSalesperson && bills.length === 0) {
     el('previewBody').innerHTML = `<span class="empty">${t('previewEmpty')}</span>`;
     return;
   }
 
   let lines = [];
-  if (selectedSalesperson) lines.push(`<b>${selectedSalesperson.name}</b> (${selectedSalesperson.id})`);
-  if (selectedCustomer) lines.push(`${t('customer')} ${selectedCustomer.id} — ${selectedCustomer.name}`);
+  if (selectedSalesperson) lines.push(`<b>${escH(selectedSalesperson.name)}</b> (${escH(selectedSalesperson.id)})`);
   if (paymentType) {
     let pt = t(paymentType === 'Cash' ? 'cash' : paymentType === 'Transfer' ? 'transfer' : 'cheque');
     if (paymentType === 'Cheque') {
       let extra = [chequeType, chequeDate].filter(Boolean).join(', ');
-      if (extra) pt += ` (${extra})`;
+      if (extra) pt += ` (${escH(extra)})`;
     }
     lines.push(pt);
   }
@@ -825,12 +1001,15 @@ function updatePreview(){
   if (bills.length) {
     html += '<div class="divider"></div>';
     html += bills.map(b => {
-      const label = b.type === 'Credit Note' ? 'CN' : t('bill');
-      return `<div class="bill-line"><span>${label} ${b.billNo || '—'}</span><span class="${b.type === 'Credit Note' ? 'cn' : ''}">${formatSigned(b.amount)}</span></div>`;
+      const label = b.type === 'Credit Note' ? 'CN' : b.type === 'Note' ? t('note') : t('bill');
+      const num = b.type === 'Note' ? '' : ' ' + escH(b.billNo || '—');
+      const who = b.type === 'Note' ? (b.noteCustomer || b.customerName) : b.customerName;
+      const sub = who ? `<br/><span style="opacity:.85;font-size:12.5px">${escH(who)}</span>` : '';
+      return `<div class="bill-line"><span>${label}${num}${sub}</span><span class="${b.type === 'Credit Note' ? 'cn' : ''}">${formatSigned(b.amount)}</span></div>`;
     }).join('');
   }
 
-  if (receiptImageDataUrl) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 ${t('receiptImage')}</div>`;
+  if (receiptImages.length) html += `<div style="margin-top:4px; font-size:12.5px; opacity:.9;">📎 ${t('receiptImage').replace(/\s*\(.*\)\s*$/, '')} × ${receiptImages.length}</div>`;
   html += `<div class="amt${total < 0 ? ' neg' : ''}">${formatSigned(total)}</div>`;
 
   el('previewBody').innerHTML = html;
@@ -859,7 +1038,7 @@ function renderDebugPanel(){
     `canExportReport: ${!!window.__canExport}`;
 }
 
-/* ---------- receipt photo: read + compress client-side before upload ---------- */
+/* ---------- receipt photos: read + compress client-side before upload (up to MAX_PHOTOS) ---------- */
 function fileToCompressedDataUrl(file){
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -885,33 +1064,38 @@ function fileToCompressedDataUrl(file){
   });
 }
 
-el('cameraBtn').addEventListener('click', () => el('receiptCameraInput').click());
-el('galleryBtn').addEventListener('click', () => el('receiptGalleryInput').click());
-
-async function handlePhotoFile(file){
-  if (!file) return;
-  const row = el('photoBtnRow');
-  try {
-    receiptImageDataUrl = await fileToCompressedDataUrl(file);
-    el('photoThumb').src = receiptImageDataUrl;
-    el('photoPreview').classList.add('show');
-    row.style.display = 'none';
-    updatePreview();
-  } catch (err) {
-    showToast(t('photoErr'), true);
-  }
+function renderPhotos(){
+  const grid = el('photoPreview');
+  grid.className = 'photo-grid' + (receiptImages.length ? ' show' : '');
+  grid.innerHTML = receiptImages.map((src, i) =>
+    `<div class="ph"><img src="${src}" alt="" /><span class="ph-x" data-i="${i}">✕</span></div>`).join('');
+  el('photoCount').textContent = receiptImages.length ? `${receiptImages.length}/${MAX_PHOTOS}` : '';
+  el('photoBtnRow').style.display = receiptImages.length >= MAX_PHOTOS ? 'none' : 'flex';
+  updatePreview();
 }
 
-el('receiptCameraInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
-el('receiptGalleryInput').addEventListener('change', (e) => handlePhotoFile(e.target.files[0]));
+async function addPhotos(fileList){
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  const room = MAX_PHOTOS - receiptImages.length;
+  if (files.length > room) showToast(tFmt('photoMax', { n: MAX_PHOTOS }), true);
+  for (const f of files.slice(0, Math.max(room, 0))) {
+    try { receiptImages.push(await fileToCompressedDataUrl(f)); }
+    catch (err) { showToast(t('photoErr'), true); }
+  }
+  renderPhotos();
+}
 
-el('clearPhoto').addEventListener('click', () => {
-  receiptImageDataUrl = null;
-  el('receiptCameraInput').value = '';
-  el('receiptGalleryInput').value = '';
-  el('photoPreview').classList.remove('show');
-  el('photoBtnRow').style.display = 'flex';
-  updatePreview();
+el('cameraBtn').addEventListener('click', () => el('receiptCameraInput').click());
+el('galleryBtn').addEventListener('click', () => el('receiptGalleryInput').click());
+el('receiptCameraInput').addEventListener('change', (e) => { addPhotos(e.target.files); e.target.value = ''; });
+el('receiptGalleryInput').addEventListener('change', (e) => { addPhotos(e.target.files); e.target.value = ''; });
+
+el('photoPreview').addEventListener('click', (e) => {
+  const x = e.target.closest('.ph-x');
+  if (!x) return;
+  receiptImages.splice(Number(x.dataset.i), 1);
+  renderPhotos();
 });
 
 /* ---------- Finance "viewing data for" switcher ---------- */
@@ -1059,14 +1243,14 @@ function renderMyReceipts(){
   list.innerHTML = myReceiptsCache.map(r => {
     const voided = r.status === 'Voided';
     const billsHtml = r.bills.map(b => `
-      <div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : t('bill')} ${b.billNo}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
+      <div class="mr-bill-line"><span>${lineHtml_(b)}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>
     `).join('');
     return `
       <div class="mr-card ${voided ? 'voided' : ''}" data-receipt-id="${r.receiptId}">
         <div class="mr-head">
           <div>
             <div class="mr-date">${r.paymentDate || r.date}</div>
-            <div class="mr-customer">${r.customerName}</div>
+            <div class="mr-customer">${escH(r.customerName)}</div>
           </div>
           <div class="mr-total ${r.total < 0 ? 'neg' : ''}">${formatSigned(r.total)}</div>
         </div>
@@ -1189,46 +1373,6 @@ function formatMonthLabel(yyyyMM){
   return d.toLocaleDateString(currentLang === 'th' ? 'th-TH' : 'en-US', { year: 'numeric', month: 'long' });
 }
 
-/* ---------- customer search ---------- */
-el('customerSearch').addEventListener('input', (e) => {
-  const q = e.target.value.trim().toLowerCase();
-  const box = el('customerResults');
-  if (!q) { box.className = 'results'; box.innerHTML = ''; return; }
-
-  const matches = customers.filter(c =>
-    String(c.id).toLowerCase().includes(q) || String(c.name).toLowerCase().includes(q)
-  ).slice(0, 20);
-
-  box.innerHTML = matches.length
-    ? matches.map(c => `
-        <div class="result-item" data-id="${c.id}" data-name="${c.name}">
-          <div class="id">${c.id}</div>
-          <div class="name">${c.name}</div>
-        </div>`).join('')
-    : `<div class="no-results">${t('noMatchingCustomer')}</div>`;
-  box.className = 'results open';
-});
-
-el('customerResults').addEventListener('click', (e) => {
-  const item = e.target.closest('.result-item');
-  if (!item || !item.dataset.id) return;
-  selectedCustomer = { id: item.dataset.id, name: item.dataset.name };
-  el('customerSearch').value = '';
-  el('customerSearch').style.display = 'none';
-  el('customerResults').className = 'results';
-  el('selectedCustomerText').textContent = `${selectedCustomer.id} — ${selectedCustomer.name}`;
-  el('selectedCustomer').className = 'selected-customer show';
-  updatePreview();
-});
-
-el('clearCustomer').addEventListener('click', () => {
-  selectedCustomer = null;
-  el('customerSearch').style.display = 'block';
-  el('customerSearch').value = '';
-  el('selectedCustomer').className = 'selected-customer';
-  updatePreview();
-});
-
 /* ---------- payment type ---------- */
 el('paymentSeg').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
@@ -1260,12 +1404,14 @@ el('receiptForm').addEventListener('submit', async (e) => {
   const chequeType = el('chequeType').value.trim();
   const chequeDate = el('chequeDate').value;
 
-  const rowsIncomplete = billRows.some(r => !r.billNo.trim() || !(parseFloat(r.amount) > 0));
+  // every line needs an amount; invoices/credit notes need a customer + number; notes need a name + comment
+  const rowsIncomplete = billRows.some(r => !(parseFloat(r.amount) > 0) ||
+    (r.type === 'Note' ? (!r.noteCustomer.trim() || !r.noteText.trim()) : (!r.customer || !r.billNo.trim())));
 
-  if (!selectedSalesperson || !selectedCustomer || billRows.length === 0 || rowsIncomplete ||
-      !paymentType || !paymentDate || !receiptImageDataUrl ||
+  if (!selectedSalesperson || billRows.length === 0 || rowsIncomplete ||
+      !paymentType || !paymentDate || receiptImages.length === 0 ||
       (paymentType === 'Cheque' && (!chequeType || !chequeDate))) {
-    el('formError').textContent = !receiptImageDataUrl ? t('formErrorPhoto') : t('formErrorDefault');
+    el('formError').textContent = receiptImages.length === 0 ? t('formErrorPhoto') : t('formErrorDefault');
     el('formError').className = 'error-text show';
     return;
   }
@@ -1280,15 +1426,17 @@ el('receiptForm').addEventListener('submit', async (e) => {
   const payload = {
     salesperson: selectedSalesperson.name,
     salesId: selectedSalesperson.id,
-    customerId: selectedCustomer.id,
-    customerName: selectedCustomer.name,
+    // kept for older server versions; the server now reads the customer from every line
+    customerId: bills[0].customerId,
+    customerName: bills[0].customerName,
     bills: bills,
     totalAmount: totalAmount,
     paymentType: paymentType,
     paymentDate: paymentDate,
     chequeType: paymentType === 'Cheque' ? chequeType : '',
     chequeDate: paymentType === 'Cheque' ? chequeDate : '',
-    receiptImage: receiptImageDataUrl || '',
+    receiptImages: receiptImages,
+    receiptImage: receiptImages[0] || '',
     lineUserId: profile.userId,
     lineDisplayName: profile.displayName
   };
@@ -1845,10 +1993,14 @@ const apVisible = () => el('tabAppr').style.display !== 'none';
 const driveId = u => { const m = String(u || '').match(/\/d\/([^/?]+)|[?&]id=([^&]+)/); return m ? (m[1] || m[2]) : ''; };
 const apThumb = u => { const id = driveId(u); return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1600` : (u || ''); };
 function apCard(r){
-  const bills = r.bills.map(b => `<div class="mr-bill-line"><span>${b.type === 'Credit Note' ? 'CN' : t('bill')} ${escH(b.billNo)}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>`).join('');
+  const bills = r.bills.map(b => `<div class="mr-bill-line"><span>${lineHtml_(b)}</span><span class="${b.amount < 0 ? 'neg' : ''}">${formatSigned(b.amount)}</span></div>`).join('');
   const pay = t(r.paymentType === 'Cash' ? 'cash' : r.paymentType === 'Transfer' ? 'transfer' : 'cheque') + (r.paymentType === 'Cheque' ? ' · ' + escH(r.chequeType) + ' ' + escH(r.chequeDate) : '');
-  const th = apThumb(r.receiptImage);
-  const img = r.receiptImage ? `<img class="ap-thumb" src="${escH(th)}" data-full="${escH(th)}" data-link="${escH(r.receiptImage)}" loading="lazy" alt="${t('apprPhoto')}" />` : '';
+  // a receipt can have up to 10 photos (one Drive link each)
+  const imgs = (r.receiptImages && r.receiptImages.length) ? r.receiptImages : (r.receiptImage ? [r.receiptImage] : []);
+  const img = imgs.length ? `<div class="ap-thumbs ${imgs.length === 1 ? 'one' : ''}">` + imgs.map(u => {
+    const th = apThumb(u);
+    return `<img class="ap-thumb" src="${escH(th)}" data-full="${escH(th)}" data-link="${escH(u)}" loading="lazy" alt="${t('apprPhoto')}" />`;
+  }).join('') + '</div>' : '';
   const acts = r.approval === 'Pending'
     ? `<span class="mr-action" data-act="Approved">✅ ${t('apprApprove')}</span><span class="mr-action danger" data-act="RejectOpen">✖ ${t('apprReject')}</span>`
     : `<span class="mr-action danger" data-act="Pending">↩ ${t('apprUndo')}</span>`;
@@ -1898,18 +2050,29 @@ el('apList').addEventListener('click', async e => {
     showToast(t('apprDone')); apLoad(true);
   } catch (x) { showToast(t('saveConnErr'), true); b.style.opacity = 1; }
 });
-/* tap a receipt photo -> full-screen viewer with Approve / Reject right there */
-let apLbRid = '';
+/* tap a receipt photo -> full-screen viewer (‹ › to flip through all photos) with Approve / Reject right there */
+let apLbRid = '', apLbList = [], apLbIdx = 0;
 const apLbClose = () => { el('apLb').style.display = 'none'; el('apLbImg').src = ''; };
 const apCardOf = () => [...el('apList').children].find(n => n.dataset && n.dataset.rid === apLbRid);
+function apLbShow(i){
+  if (!apLbList.length) return;
+  apLbIdx = (i + apLbList.length) % apLbList.length;
+  const im = apLbList[apLbIdx];
+  el('apLbImg').src = im.dataset.full; el('apLbOpen').href = im.dataset.link;
+  el('apLbCount').textContent = apLbList.length > 1 ? (apLbIdx + 1) + '/' + apLbList.length : '';
+  el('apLbPrev').style.visibility = el('apLbNext').style.visibility = apLbList.length > 1 ? 'visible' : 'hidden';
+}
 el('apList').addEventListener('click', e => {
   const im = e.target.closest('.ap-thumb'); if (!im) return;
   const card = im.closest('.mr-card'); apLbRid = card.dataset.rid;
-  el('apLbImg').src = im.dataset.full; el('apLbOpen').href = im.dataset.link;
+  apLbList = [...card.querySelectorAll('.ap-thumb')];
   el('apLbOk').textContent = '✅ ' + t('apprApprove'); el('apLbNo').textContent = '✖ ' + t('apprReject');
   el('apLbActs').style.display = card.querySelector('[data-act="Approved"]') ? 'flex' : 'none';
   el('apLb').style.display = 'flex';
+  apLbShow(apLbList.indexOf(im));
 });
+el('apLbPrev').addEventListener('click', () => apLbShow(apLbIdx - 1));
+el('apLbNext').addEventListener('click', () => apLbShow(apLbIdx + 1));
 el('apLbClose').addEventListener('click', apLbClose);
 el('apLbOk').addEventListener('click', () => { const c = apCardOf(); apLbClose(); if (c) c.querySelector('[data-act="Approved"]').click(); });
 el('apLbNo').addEventListener('click', () => { const c = apCardOf(); apLbClose(); if (c) { c.querySelector('[data-act="RejectOpen"]').click(); c.scrollIntoView({ block: 'center' }); } });
