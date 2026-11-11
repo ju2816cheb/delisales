@@ -197,17 +197,32 @@
   }
   .bill-row textarea.note-text:focus{ outline:none; border-color:var(--primary); }
 
-  /* open invoices picker */
+  /* open invoices picker — scrolling drop-down list */
   .row-open:empty{ display:none; }
   .open-inv{ margin-bottom:8px; }
-  .oi-pills{ display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
-  .oi-pill{
-    padding:7px 10px; border-radius:18px; border:1.5px solid var(--border); background:#fff;
-    font-family:inherit; font-size:12px; font-weight:600; color:var(--ink-soft); cursor:pointer; text-align:left;
-  }
-  .oi-pill.on{ border-color:var(--primary); background:var(--primary-bg); color:var(--primary-dark); }
-  .oi-pill.cr{ color:var(--danger); }
   .row-open .hint{ margin:0 0 4px; }
+  .oi-dd{ border:1.5px solid var(--border); border-radius:10px; background:#fff; margin-top:6px; overflow:hidden; }
+  .oi-dd.open{ border-color:var(--primary); }
+  .oi-toggle{
+    width:100%; display:flex; justify-content:space-between; align-items:center; gap:8px;
+    padding:11px 12px; border:none; background:#fff; font-family:inherit; font-size:14px;
+    font-weight:600; color:var(--ink); cursor:pointer; text-align:left;
+  }
+  .oi-toggle .oi-ph{ color:var(--ink-soft); font-weight:500; }
+  .oi-toggle .oi-arrow{ color:var(--ink-soft); font-size:12px; flex-shrink:0; }
+  .oi-list{ display:none; max-height:240px; overflow-y:auto; -webkit-overflow-scrolling:touch; border-top:1px solid var(--border); }
+  .oi-dd.open .oi-list{ display:block; }
+  .oi-opt{
+    display:flex; justify-content:space-between; align-items:center; gap:10px;
+    padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13.5px;
+  }
+  .oi-opt:last-child{ border-bottom:none; }
+  .oi-opt:active{ background:var(--primary-bg); }
+  .oi-opt.on{ background:var(--primary-bg); }
+  .oi-opt .oi-no{ font-weight:600; word-break:break-all; }
+  .oi-opt .oi-sub{ display:block; font-size:11.5px; color:var(--ink-soft); font-weight:400; margin-top:2px; }
+  .oi-opt .oi-amt{ font-weight:700; white-space:nowrap; }
+  .oi-opt.cr .oi-amt{ color:var(--danger); }
 
   /* --- Receipt photo picker (up to 10) --- */
   .photo-btn-row{ display:flex; gap:8px; }
@@ -554,6 +569,11 @@
         <div id="spAddInfo"></div>
       </div>
     </div>
+    <!-- Only F-001: export the stop-supply list as an Excel file (hidden for everyone else) -->
+    <div id="spExport" style="display:none;margin-bottom:12px">
+      <button type="button" class="od-save" id="spXlsxBtn" style="margin-top:0" data-i18n="spExpXlsx">📥 Export Stop Supply Excel</button>
+      <div class="hint" id="spExpMsg"></div>
+    </div>
     <div id="spHero"></div>
     <input type="text" id="spSearch" class="od-search" data-i18n-placeholder="spSearch" placeholder="Search customer name or code" autocomplete="off" />
     <div id="stopList"></div>
@@ -567,9 +587,8 @@
 </div>
 
 <!-- Receipt photo viewer (Approvals tab).
-     FIX: this block MUST come BEFORE the <script> below. Previously it sat after the script,
-     so el('apLbClose') was null when the Approvals code ran, which threw an error and stopped
-     the rest of the page (including init()) from running. -->
+     This block MUST come BEFORE the <script> below, otherwise el('apLbClose') is null when the
+     Approvals code runs and the rest of the page (including init()) never starts. -->
 <div id="apLb">
   <div class="lb-top"><a id="apLbOpen" target="_blank" rel="noopener">↗ Drive</a><span class="lb-nav"><span id="apLbPrev">‹</span><span id="apLbCount"></span><span id="apLbNext">›</span></span><span id="apLbClose">✕</span></div>
   <div class="lb-img"><img id="apLbImg" alt="" /></div>
@@ -604,6 +623,7 @@ const I18N = {
     noteCustOpt: 'Link to a listed customer (optional)',
     openInvTitle: 'Open invoices — tap to fill in', openInvLoading: 'Checking open invoices…',
     openInvNone: 'No open invoices on record — type the number below.',
+    openInvPick: 'Select invoice ▾',
     paymentType: 'Payment type', cash: 'Cash', transfer: 'Transfer', cheque: 'Cheque',
     chequeType: 'Cheque type', chequeTypePlaceholder: 'Cheque No.', chequeDate: 'Cheque date',
     receiptImage: 'Receipt photos (up to 10)', takePhoto: '📷 Take photo', chooseGallery: '🖼️ Choose from gallery', removePhoto: 'Remove',
@@ -649,6 +669,7 @@ const I18N = {
     noteCustOpt: 'เชื่อมกับลูกค้าในรายชื่อ (ไม่บังคับ)',
     openInvTitle: 'ใบแจ้งหนี้ที่ค้างอยู่ — แตะเพื่อกรอกให้อัตโนมัติ', openInvLoading: 'กำลังตรวจสอบใบแจ้งหนี้ค้างชำระ…',
     openInvNone: 'ไม่พบใบแจ้งหนี้ค้างชำระ — พิมพ์เลขที่ด้านล่างได้เลย',
+    openInvPick: 'เลือกใบแจ้งหนี้ ▾',
     paymentType: 'ประเภทการชำระเงิน', cash: 'เงินสด', transfer: 'โอนเงิน', cheque: 'เช็ค',
     chequeType: 'ประเภทเช็ค', chequeTypePlaceholder: 'Cheque No.', chequeDate: 'วันที่เช็ค',
     receiptImage: 'รูปใบเสร็จ (สูงสุด 10 รูป)', takePhoto: '📷 ถ่ายรูป', chooseGallery: '🖼️ เลือกจากคลังภาพ', removePhoto: 'ลบ',
@@ -776,7 +797,7 @@ function createBillRow(initType){
   billRows.push({
     rowId: 'row' + rowCounter, type: initType || 'Invoice',
     customer: prev && prev.customer ? prev.customer : null,   // new line starts with the previous line's customer (change it if needed)
-    search: '', billNo: '', amount: '', noteCustomer: '', noteText: ''
+    search: '', billNo: '', amount: '', noteCustomer: '', noteText: '', invOpen: false
   });
   renderBillRows();
 }
@@ -798,6 +819,7 @@ function customerBlockHtml(r){
       <div class="results row-results"></div></div></div>`;
 }
 
+/* open invoices: scrolling drop-down (tap the box, pick an invoice, it fills number + amount) */
 function openInvHtml(r){
   if (r.type === 'Note' || !r.customer) return '';
   const s = openInv[r.customer.id];
@@ -807,10 +829,22 @@ function openInvHtml(r){
   billRows.forEach(x => { if (x !== r && x.customer && x.customer.id === r.customer.id && x.billNo.trim()) used[x.billNo.trim()] = 1; });
   const list = s.list.filter(i => !used[i.invoiceNo]);
   if (!list.length) return `<div class="hint">${t('openInvNone')}</div>`;
-  return `<div class="open-inv"><div class="hint">${t('openInvTitle')}</div><div class="oi-pills">` +
-    list.map(i => `<button type="button" class="oi-pill ${i.credit ? 'cr' : ''} ${r.billNo.trim() === i.invoiceNo ? 'on' : ''}" data-inv="${escH(i.invoiceNo)}">` +
-      `${escH(i.invoiceNo)} · ${i.days}${t('odDays')} · ${i.credit ? '-' : ''}฿${money(i.remaining)}${i.partial ? ' (' + t('spPartial') + ')' : ''}</button>`).join('') +
-    `</div></div>`;
+
+  const optInner = i =>
+    `<span><span class="oi-no">${escH(i.invoiceNo)}${i.credit ? ' · ' + t('creditNote') : ''}</span>` +
+    `<span class="oi-sub">${i.dueDate ? escH(i.dueDate) + ' · ' : ''}${i.days}${t('odDays')}${i.partial ? ' · ' + t('spPartial') : ''}</span></span>` +
+    `<span class="oi-amt">${i.credit ? '-' : ''}฿${money(i.remaining)}</span>`;
+
+  const cur = list.find(i => i.invoiceNo === r.billNo.trim());
+  const head = cur ? optInner(cur) : `<span class="oi-ph">${t('openInvPick')}</span>`;
+  const opts = list.map(i =>
+    `<div class="oi-opt ${i.credit ? 'cr' : ''} ${cur && cur.invoiceNo === i.invoiceNo ? 'on' : ''}" data-inv="${escH(i.invoiceNo)}">${optInner(i)}</div>`
+  ).join('');
+
+  return `<div class="open-inv"><div class="hint">${t('openInvTitle')} (${list.length})</div>` +
+    `<div class="oi-dd ${r.invOpen ? 'open' : ''}">` +
+    `<button type="button" class="oi-toggle">${head}<span class="oi-arrow">${r.invOpen ? '▲' : '▼'}</span></button>` +
+    `<div class="oi-list">${opts}</div></div></div>`;
 }
 
 /* refresh only the open-invoice strips (never touches the inputs, so typing is not interrupted) */
@@ -904,7 +938,7 @@ el('billRows').addEventListener('click', (e) => {
   if (e.target.closest('[data-action="remove"]')) { removeBillRow(row.dataset.rowId); return; }
 
   if (e.target.closest('[data-action="clearCust"]')) {
-    data.customer = null; data.search = '';
+    data.customer = null; data.search = ''; data.invOpen = false;
     renderBillRows();
     return;
   }
@@ -918,16 +952,23 @@ el('billRows').addEventListener('click', (e) => {
     return;
   }
 
-  const pill = e.target.closest('.oi-pill');
-  if (pill && data.customer) {
+  // open the / close the invoice drop-down
+  const tog = e.target.closest('.oi-toggle');
+  if (tog) { data.invOpen = !data.invOpen; refreshOpenInv(); return; }
+
+  // pick an invoice from the drop-down
+  const opt = e.target.closest('.oi-opt');
+  if (opt && data.customer) {
     const s = openInv[data.customer.id];
-    const inv = s && s.list.find(i => i.invoiceNo === pill.dataset.inv);
+    const inv = s && s.list.find(i => i.invoiceNo === opt.dataset.inv);
     if (inv) {
       data.type = inv.credit ? 'Credit Note' : 'Invoice';
       data.billNo = inv.invoiceNo;
       data.amount = String(Math.round(Math.abs(inv.remaining) * 100) / 100);
+      data.invOpen = false;
       renderBillRows();
     }
+    return;
   }
 });
 
@@ -1477,14 +1518,14 @@ Object.assign(I18N.en, {
   odNeedsReply:'Needs reply', odPays:'Pays {d}', odProbLabel:'Problem: {p}', odEdit:'Edit', odReplied:'Replied',
   odPay:'Customer will pay on', odQ3:'+3 days', odQ7:'+7 days', odQ14:'+14 days', odEom:'End of month',
   odProbQ:'Any problem with this customer?', odNoProb:'No problem', odp0:'No funds', odp1:'Disputed bill', odp2:'Cannot contact', odp3:'Other',
-  odNote:'Details', odNoteOpt:'(optional)', odOldTitle:'Over {n} days — why is this invoice still unpaid?', odOldCopy:'Use the same comment for all',
+  odNote:'Details', odNoteOpt:'(optional)', odOldTitle:'{n}+ days overdue — why is this invoice still unpaid?', odOldCopy:'Use the same comment for all',
   odSave:'Save reply', odSaving:'Saving…', odSaved:'Reply saved ✓', odDays:'d', odCn:'Credit note', odDue:'due',
   odErrDate:'Pick the date the customer will pay.', odErrPast:'The pay date cannot be in the past.',
-  odErrOther:'Please describe the problem.', odErrOld:'Add a comment for every invoice over {n} days.',
+  odErrOther:'Please describe the problem.', odErrOld:'Add a comment for every invoice that is {n}+ days overdue.',
   odAllDone:'All customers replied 🎉', odNone:'No overdue customers.', odNoMatch:'No matching customer.',
   odNotReg:'Your LINE account isn\'t linked to a salesperson yet — save one receipt first, or ask your admin.',
   odReadOnly:'view only', odLastReply:'Last reply', odNoReply:'No reply yet.', odAllView:'all salespeople',
-  odOfMust:'{a} of {b} customers over {n} days replied', odNoMust:'No customer needs a reply', odOptional:'Reply optional'
+  odOfMust:'{a} of {b} customers with {n}+ day invoices replied', odNoMust:'No customer needs a reply', odOptional:'Reply optional'
 });
 Object.assign(I18N.th, {
   tabOverdue:'ค้างชำระ', odNeeds:'ยังไม่ตอบ', odAll:'ทั้งหมด', odProblems:'มีปัญหา', odSearch:'ค้นหาชื่อหรือรหัสลูกค้า',
@@ -1492,14 +1533,14 @@ Object.assign(I18N.th, {
   odNeedsReply:'ยังไม่ตอบ', odPays:'จ่าย {d}', odProbLabel:'ปัญหา: {p}', odEdit:'แก้ไข', odReplied:'ตอบแล้ว',
   odPay:'ลูกค้าจะชำระวันที่', odQ3:'+3 วัน', odQ7:'+7 วัน', odQ14:'+14 วัน', odEom:'สิ้นเดือน',
   odProbQ:'ลูกค้ารายนี้มีปัญหาหรือไม่?', odNoProb:'ไม่มีปัญหา', odp0:'ไม่มีเงิน', odp1:'บิลมีข้อโต้แย้ง', odp2:'ติดต่อไม่ได้', odp3:'อื่น ๆ',
-  odNote:'รายละเอียด', odNoteOpt:'(ไม่บังคับ)', odOldTitle:'เกิน {n} วัน — เหตุใดบิลนี้ยังไม่ชำระ?', odOldCopy:'ใช้ความเห็นเดียวกันทุกบิล',
+  odNote:'รายละเอียด', odNoteOpt:'(ไม่บังคับ)', odOldTitle:'ค้างชำระ {n} วันขึ้นไป — เหตุใดบิลนี้ยังไม่ชำระ?', odOldCopy:'ใช้ความเห็นเดียวกันทุกบิล',
   odSave:'บันทึกคำตอบ', odSaving:'กำลังบันทึก…', odSaved:'บันทึกแล้ว ✓', odDays:'วัน', odCn:'ใบลดหนี้', odDue:'ครบกำหนด',
   odErrDate:'กรุณาเลือกวันที่ลูกค้าจะชำระ', odErrPast:'วันที่ชำระต้องไม่เป็นวันในอดีต',
-  odErrOther:'กรุณาอธิบายปัญหา', odErrOld:'กรุณาใส่ความเห็นให้ทุกบิลที่เกิน {n} วัน',
+  odErrOther:'กรุณาอธิบายปัญหา', odErrOld:'กรุณาใส่ความเห็นให้ทุกบิลที่ค้างชำระ {n} วันขึ้นไป',
   odAllDone:'ตอบครบทุกรายแล้ว 🎉', odNone:'ไม่มีลูกค้าค้างชำระ', odNoMatch:'ไม่พบลูกค้าที่ตรงกัน',
   odNotReg:'บัญชี LINE ของคุณยังไม่ได้เชื่อมกับรหัสเซลส์ — บันทึกใบเสร็จหนึ่งครั้งก่อน หรือแจ้งแอดมิน',
   odReadOnly:'ดูอย่างเดียว', odLastReply:'คำตอบล่าสุด', odNoReply:'ยังไม่มีคำตอบ', odAllView:'Sales ทั้งหมด',
-  odOfMust:'ตอบแล้ว {a} จาก {b} ราย (เกิน {n} วัน)', odNoMust:'ไม่มีรายที่ต้องตอบ', odOptional:'ตอบหรือไม่ก็ได้'
+  odOfMust:'ตอบแล้ว {a} จาก {b} ราย (มีบิล {n} วันขึ้นไป)', odNoMust:'ไม่มีรายที่ต้องตอบ', odOptional:'ตอบหรือไม่ก็ได้'
 });
 
 /* ---------- state + helpers ---------- */
@@ -1521,7 +1562,7 @@ function quickDate(k){
 }
 const posInv = c => c.invoices.filter(i => !i.credit);
 const oldInv = c => c.invoices.filter(i => i.old);
-const dayClass = (n, oldDays) => n > oldDays ? 'd3' : (n >= 30 ? 'd2' : 'd1');
+const dayClass = (n, oldDays) => n >= oldDays ? 'd3' : (n >= 30 ? 'd2' : 'd1');
 
 function getDraft(c){
   if (!odDraft[c.uid]) {
@@ -2170,7 +2211,7 @@ Object.assign(I18N.en, {
 });
 Object.assign(I18N.th, {
   spReqTab:'คำขอ', spReqWait:'รออนุมัติ', spReqHist:'ประวัติ',
-  spReqCount:'คำขอหยุดส่งสินค้า รออนุมัติ', spReqRule:'กฎอัตโนมัติ: บิลค้างชำระเกิน {d} วัน และยอดรวมเกิน ฿{a}',
+  spReqCount:'คำขอหยุดส่งสินค้า รออนุมัติ', spReqRule:'กฎอัตโนมัติ: บิลค้างชำระ {d} วันขึ้นไป และยอดรวมเกิน ฿{a}',
   spReqWho:'เฉพาะ {n} ({id}) เท่านั้นที่อนุมัติหรือปฏิเสธได้ แอดมินคนอื่นดูได้อย่างเดียว', spReqNone:'ไม่มีคำขอรออนุมัติ 🎉', spReqHistNone:'ไม่มีรายการใน 30 วันที่ผ่านมา',
   spReqScan:'🔍 ตรวจสอบตอนนี้', spReqScanBusy:'กำลังตรวจสอบ…', spReqScanDone:'ตรวจสอบแล้ว — ใหม่ {n} ยกเลิก {c}',
   spReqSales:'พนักงานขาย', spReqAt:'ยื่นคำขอเมื่อ', spReqWaitChip:'รอ {n} อนุมัติ', spReqStale:'น่าจะชำระแล้ว — จะถูกยกเลิก',
@@ -2306,6 +2347,47 @@ loadLists = async function(){
 };
 })();
 
+/* ---------- ONLY F-001: export the stop-supply list as Excel ---------- */
+(function(){
+Object.assign(I18N.en, { spExpXlsx:'📥 Export Stop Supply Excel' });
+Object.assign(I18N.th, { spExpXlsx:'📥 ส่งออก Excel รายการหยุดส่งสินค้า' });
+
+async function runStopExport(){
+  const msg = el('spExpMsg'), btn = el('spXlsxBtn');
+  btn.disabled = true;
+  msg.className = 'hint';
+  msg.textContent = t('odExpBusy');
+  try {
+    const url = `${GAS_ENDPOINT}?action=exportStopSupply&lineUserId=${encodeURIComponent(profile.userId)}&_=${Date.now()}`;
+    const d = await (await fetch(url, { cache: 'no-store' })).json();
+    if (!d || !d.success) throw new Error((d && d.error) || t('odExpErr'));
+
+    msg.textContent = '';
+    const a = document.createElement('a');
+    a.href = d.downloadUrl; a.target = '_blank'; a.rel = 'noopener';
+    a.textContent = t('odExpReady') + ' — ' + d.name;
+    a.style.cssText = 'color:var(--primary-dark);font-weight:600';
+    msg.appendChild(a);
+
+    if (window.liff && liff.isInClient()) liff.openWindow({ url: d.downloadUrl, external: true });
+    else window.open(d.downloadUrl, '_blank');
+  } catch (err) {
+    msg.className = 'hint error';
+    msg.textContent = err.message || t('odExpErr');
+  } finally {
+    btn.disabled = false;
+  }
+}
+el('spXlsxBtn').addEventListener('click', runStopExport);
+
+// Show the button ONLY for F-001. The server decides (canExportReport) and re-checks on every export call.
+const spPrevLists = loadLists;
+loadLists = async function(){
+  await spPrevLists();
+  el('spExport').style.display = (window.__canExport && !isGuest) ? 'block' : 'none';
+};
+})();
+
 /* ---------- GUEST ACCOUNTS ("G-"): upload ONE test receipt, then ONLY the stop-supply list ---------- */
 (function(){
 Object.assign(I18N.en, { guestHint:'Guest account — upload one test receipt to unlock the stop-supply list.' });
@@ -2316,6 +2398,7 @@ function applyGuest(){
   el('viewAsField').style.display = 'none';
   el('spView').style.display = 'none';                           // current stop-supply list only (no Removed / Requests)
   el('spAdmin').style.display = 'none';
+  el('spExport').style.display = 'none';
   if (!guestHasReceipt) {
     el('guestHint').style.display = 'block';
     switchTab('new');
